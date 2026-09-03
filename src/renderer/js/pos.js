@@ -23,7 +23,14 @@ const POSController = {
   async onEnter() {
     await this.loadMenu();
     await this.loadNextOrderNumber();
-    // Focus customer search
+    if (!this.selectedCustomer) {
+      const quickForm = document.getElementById('pos-customer-quick-form');
+      const searchWrap = document.getElementById('pos-search-wrap');
+      const badge = document.getElementById('pos-customer-active-badge');
+      if (quickForm) quickForm.style.display = 'flex';
+      if (searchWrap) searchWrap.style.display = '';
+      if (badge) badge.style.display = 'none';
+    }
     const searchInput = document.getElementById('pos-customer-search-input');
     if (searchInput) searchInput.focus();
   },
@@ -140,15 +147,12 @@ const POSController = {
 
     if (!customers || customers.length === 0) {
       box.innerHTML = `
-        <div class="suggestion-create">
+        <div class="suggestion-create" id="sug-create-new">
           <svg><use href="#icon-plus"/></svg>
-          No customer found — fill fields to create new
+          No saved customer found &mdash; type new details on right
         </div>
       `;
       box.style.display = 'block';
-      // Show the quick form
-      const qf = document.getElementById('pos-customer-quick-form');
-      if (qf) qf.style.display = 'flex';
       return;
     }
 
@@ -167,7 +171,7 @@ const POSController = {
     }).join('') + `
       <div class="suggestion-create" id="sug-create-new">
         <svg><use href="#icon-plus"/></svg>
-        Create new customer
+        New customer &mdash; type details on right
       </div>
     `;
 
@@ -183,10 +187,9 @@ const POSController = {
     const createBtn = box.querySelector('#sug-create-new');
     if (createBtn) {
       createBtn.addEventListener('click', () => {
-        const qf = document.getElementById('pos-customer-quick-form');
-        const sw = document.getElementById('pos-search-wrap');
-        if (qf) qf.style.display = 'flex';
         box.style.display = 'none';
+        const nameInput = document.getElementById('pos-input-name');
+        if (nameInput) nameInput.focus();
       });
     }
 
@@ -211,11 +214,11 @@ const POSController = {
       badgeStats.textContent = `Spent: ₹${parseFloat(customer.total_spent || 0).toFixed(2)} \u2022 ${customer.total_orders || 0} Orders`;
     }
 
-    if (badge)     badge.style.display = 'flex';
-    if (quickForm) quickForm.style.display = 'none';
+    if (badge)      badge.style.display = 'flex';
+    if (quickForm)  quickForm.style.display = 'none';
     if (searchWrap) searchWrap.style.display = 'none';
-    if (sugBox)    sugBox.style.display = 'none';
-    if (searchBox) searchBox.value = '';
+    if (sugBox)     sugBox.style.display = 'none';
+    if (searchBox)  searchBox.value = '';
   },
 
   clearSelectedCustomer() {
@@ -226,10 +229,10 @@ const POSController = {
     const searchBox = document.getElementById('pos-customer-search-input');
     const sugBox    = document.getElementById('pos-customer-suggestions');
 
-    if (badge)     badge.style.display = 'none';
-    if (searchWrap)searchWrap.style.display = '';
-    if (quickForm) quickForm.style.display = 'none'; // keep hidden until needed
-    if (sugBox)    sugBox.style.display = 'none';
+    if (badge)      badge.style.display = 'none';
+    if (searchWrap) searchWrap.style.display = '';
+    if (quickForm)  quickForm.style.display = 'flex';
+    if (sugBox)     sugBox.style.display = 'none';
     if (searchBox) { searchBox.value = ''; searchBox.focus(); }
   },
 

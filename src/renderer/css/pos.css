@@ -25,8 +25,8 @@
 /* Search Box */
 .customer-search-wrap {
   position: relative;
-  flex: 1;
-  max-width: 440px;
+  width: 260px;
+  flex-shrink: 0;
 }
 
 .customer-search-icon {
@@ -184,22 +184,25 @@
 .customer-quick-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
 }
 .customer-quick-form input {
   background: var(--bg-input);
   border: 1px solid var(--border-2);
-  border-radius: var(--r-xs);
-  padding: 8px 11px;
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
   color: var(--text-primary);
-  font-size: 12.5px;
+  font-size: 13px;
   font-family: var(--font-body);
   outline: none;
-  transition: border-color var(--t-fast);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.customer-quick-form input::placeholder { color: var(--text-muted); font-size: 12px; }
-.customer-quick-form input:focus { border-color: var(--border-active); }
+.customer-quick-form input::placeholder { color: var(--text-muted); font-size: 12.5px; }
+.customer-quick-form input:focus {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.10);
+}
 
 /* ----------------------------------------------------------------
    POS Workspace
