@@ -177,6 +177,127 @@ const SupabaseSync = {
     } catch (err) {
       console.warn('Supabase menu sync error:', err.message);
     }
+  },
+
+  /**
+   * Pull all data from Supabase down into local SQLite (Multi-PC Sync)
+   */
+  async pullFromCloud(dbManager, queries) {
+    if (!this.isReady()) return { success: false, message: 'Cloud not connected' };
+    try {
+      // 1. Pull Customers
+      const { data: cloudCustomers, error: custErr } = await supabase
+        .from('customers')
+        .select('*');
+
+      if (!custErr && Array.isArray(cloudCustomers)) {
+        cloudCustomers.forEach(c => {
+          const exists = dbManager.queryOne("SELECT id FROM customers WHERE phone = ?", [c.phone]);
+          if (!exists) {
+            dbManager.run(
+              "INSERT INTO customers (customer_code, name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+              [c.customer_code, c.name, c.phone, c.email || '', c.address || '', c.notes || '', c.created_at, c.updated_at]
+            );
+          } else {
+            dbManager.run(
+              "UPDATE customers SET name = ?, address = ?, notes = ?, updated_at = ? WHERE phone = ?",
+              [c.name, c.address || '', c.notes || '', c.updated_at, c.phone]
+            );
+          }
+        });
+      }
+
+      // 2. Pull Orders
+      const { data: cloudOrders, error: ordErr } = await supabase
+        .from('orders')
+        .select('*');
+
+      if (!ordErr && Array.isArray(cloudOrders)) {
+        cloudOrders.forEach(o => {
+          const exists = dbManager.queryOne("SELECT id FROM orders WHERE order_number = ?", [o.order_number]);
+          if (!exists) {
+            const cust = dbManager.queryOne("SELECT id FROM customers WHERE phone = ?", [o.customer_phone]);
+            const custId = cust ? cust.id : null;
+
+            dbManager.run(`
+              INSERT INTO orders (
+                order_number, customer_id, customer_name, customer_phone,
+                order_date, order_time, subtotal, discount, discount_type,
+                final_total, payment_method, order_type, packaging_charge,
+                status, notes, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              o.order_number, custId, o.customer_name, o.customer_phone,
+              o.order_date, o.order_time, o.subtotal, o.discount, o.discount_type,
+              o.final_total, o.payment_method, o.order_type, o.packaging_charge,
+              o.status, o.notes || '', o.created_at
+            ]);
+          }
+        });
+      }
+
+      // 3. Pull Order Items
+      const { data: cloudItems, error: itmErr } = await supabase
+        .from('order_items')
+        .select('*');
+
+      if (!itmErr && Array.isArray(cloudItems)) {
+        cloudItems.forEach(it => {
+          const order = dbManager.queryOne("SELECT id FROM orders WHERE order_number = ?", [it.order_number]);
+          if (order) {
+            const exists = dbManager.queryOne(
+              "SELECT id FROM order_items WHERE order_id = ? AND item_name = ? AND quantity = ?",
+              [order.id, it.item_name, it.quantity]
+            );
+            if (!exists) {
+              dbManager.run(`
+                INSERT INTO order_items (
+                  order_id, menu_item_id, item_name, category_name, quantity, unit_price, total_price
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+              `, [
+                order.id, it.menu_item_id, it.item_name, it.category_name, it.quantity, it.unit_price, it.total_price
+              ]);
+            }
+          }
+        });
+      }
+
+      dbManager.saveDatabase();
+      console.log('Successfully pulled and merged cloud data into local SQLite');
+      return { success: true };
+    } catch (err) {
+      console.warn('Pull from cloud error:', err.message);
+      return { success: false, message: err.message };
+    }
+  },
+
+  async syncAdminUser(user) {
+    if (!this.isReady()) return;
+    try {
+      await supabase.from('app_users').upsert({
+        username: user.username,
+        password_hash: user.password_hash,
+        display_name: user.display_name,
+        role: user.role
+      }, { onConflict: 'username' });
+    } catch (e) {
+      console.warn('Sync admin user notice:', e.message);
+    }
+  },
+
+  async fetchUserByUsername(username) {
+    if (!this.isReady()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('username', username)
+        .single();
+      if (error) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
   }
 };
 

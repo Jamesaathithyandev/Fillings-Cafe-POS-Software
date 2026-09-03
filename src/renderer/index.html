@@ -134,11 +134,17 @@
           <svg><use href="#icon-clock"/></svg>
           Loading...
         </div>
+        <button class="topbar-icon-btn" id="btn-cloud-pull" title="Pull latest cloud orders & customers from Supabase">
+          <svg><use href="#icon-sync"/></svg> Cloud Pull
+        </button>
         <button class="topbar-icon-btn" id="btn-open-excel" title="Open Business_Data.xlsx">
           <svg><use href="#icon-excel"/></svg> Open Excel
         </button>
         <button class="topbar-icon-btn" id="btn-open-data-dir" title="Open Application Data Folder">
           <svg><use href="#icon-folder"/></svg> Data Folder
+        </button>
+        <button class="topbar-icon-btn btn-lock" id="btn-lock-screen" title="Lock POS Software">
+          <svg><use href="#icon-lock"/></svg> Lock
         </button>
       </div>
     </header>
@@ -933,6 +939,68 @@
       <!-- Injected by customers.js -->
     </div>
 
+  </div>
+</div>
+
+<!-- ============================================================
+     LOGIN & LOCK SCREEN GATE
+     ============================================================ -->
+<div class="login-gate-overlay" id="login-gate" style="display: flex;">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-brand-icon">
+        <svg viewBox="0 0 48 48"><use href="#logo-mark"/></svg>
+      </div>
+      <h2 class="login-title">Sree Sai Fillings Cafe</h2>
+      <p class="login-subtitle">POS &amp; Customer Database System</p>
+      <div class="login-badge">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><use href="#icon-lock"/></svg>
+        Authorized Staff Access Only
+      </div>
+    </div>
+
+    <form class="login-form" id="form-login">
+      <div class="login-field">
+        <label for="login-username">Username</label>
+        <div class="login-input-wrap">
+          <svg class="login-field-icon"><use href="#icon-customers"/></svg>
+          <input type="text" id="login-username" placeholder="Enter username (admin)" autocomplete="username" required />
+        </div>
+      </div>
+
+      <div class="login-field">
+        <label for="login-password">Password</label>
+        <div class="login-input-wrap">
+          <svg class="login-field-icon"><use href="#icon-lock"/></svg>
+          <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" required />
+          <button type="button" class="btn-toggle-pwd" id="btn-toggle-pwd" title="Show/Hide password">
+            <svg id="eye-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-options">
+        <label class="remember-wrap">
+          <input type="checkbox" id="login-remember" checked />
+          <span>Remember this device</span>
+        </label>
+        <span class="login-hint">Multi-PC Sync</span>
+      </div>
+
+      <div class="login-error-msg" id="login-error-msg" style="display: none;"></div>
+
+      <button type="submit" class="btn-login-submit" id="btn-login-submit">
+        <span id="btn-login-text">Sign In &amp; Open POS</span>
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <span>Connected to Supabase Cloud DB</span>
+      <span class="login-version">v2.1</span>
+    </div>
   </div>
 </div>
 

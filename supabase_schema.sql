@@ -77,7 +77,19 @@ ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
 ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
 
--- Create fast indexes for reporting
 CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_phone);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_number);
+
+-- 6. Application Users Table (Authentication)
+CREATE TABLE IF NOT EXISTS app_users (
+  id SERIAL PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  role TEXT DEFAULT 'admin',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE app_users DISABLE ROW LEVEL SECURITY;

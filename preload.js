@@ -48,5 +48,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke('backup:list'),
   restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
   getSupabaseStatus: () => ipcRenderer.invoke('supabase:getStatus'),
-  selectAndRestoreBackup: () => ipcRenderer.invoke('backup:selectAndRestore')
+  selectAndRestoreBackup: () => ipcRenderer.invoke('backup:selectAndRestore'),
+
+  // Authentication & Multi-PC Cloud Sync
+  login: (username, password, rememberMe) => ipcRenderer.invoke('auth:login', username, password, rememberMe),
+  logout: () => ipcRenderer.invoke('auth:logout'),
+  checkSession: () => ipcRenderer.invoke('auth:checkSession'),
+  pullFromCloud: () => ipcRenderer.invoke('cloud:pullSync')
 });

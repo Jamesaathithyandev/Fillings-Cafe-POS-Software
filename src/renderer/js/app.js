@@ -3,7 +3,8 @@
 const App = {
   activeView: 'dashboard',
   
-  init() {
+  async init() {
+    this.setupAuth();
     this.setupNavigation();
     this.setupClock();
     this.setupShortcuts();
@@ -16,6 +17,9 @@ const App = {
       this.checkExcelStatus();
       this.checkCloudStatus();
     }, 30000);
+
+    // Verify session
+    await this.checkAuthSession();
   },
 
   setupNavigation() {
@@ -127,6 +131,150 @@ const App = {
         }
       }
     });
+  },
+
+  setupAuth() {
+    const formLogin = document.getElementById('form-login');
+    const inputUser = document.getElementById('login-username');
+    const inputPass = document.getElementById('login-password');
+    const chkRemember = document.getElementById('login-remember');
+    const btnTogglePwd = document.getElementById('btn-toggle-pwd');
+    const errorMsg = document.getElementById('login-error-msg');
+    const btnSubmit = document.getElementById('btn-login-submit');
+    const btnLock = document.getElementById('btn-lock-screen');
+    const btnCloudPull = document.getElementById('btn-cloud-pull');
+
+    // Toggle password visibility
+    if (btnTogglePwd && inputPass) {
+      btnTogglePwd.addEventListener('click', () => {
+        const isPass = inputPass.type === 'password';
+        inputPass.type = isPass ? 'text' : 'password';
+      });
+    }
+
+    // Submit login form
+    if (formLogin) {
+      formLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = inputUser.value.trim();
+        const password = inputPass.value;
+        const remember = chkRemember ? chkRemember.checked : true;
+
+        if (!username || !password) {
+          if (errorMsg) {
+            errorMsg.textContent = 'Please enter both username and password.';
+            errorMsg.style.display = 'block';
+          }
+          return;
+        }
+
+        if (btnSubmit) {
+          btnSubmit.disabled = true;
+          btnSubmit.style.opacity = '0.7';
+          const txt = document.getElementById('btn-login-text');
+          if (txt) txt.textContent = 'Verifying...';
+        }
+        if (errorMsg) errorMsg.style.display = 'none';
+
+        try {
+          const res = await window.electronAPI.login(username, password, remember);
+          if (res && res.success) {
+            this.unlockApp(res.user);
+            App.showToast(`Welcome back, ${res.user.displayName || res.user.username}!`, 'success');
+            // Pull latest cloud data
+            this.triggerCloudPull(false);
+          } else {
+            if (errorMsg) {
+              errorMsg.textContent = res ? res.message : 'Invalid credentials.';
+              errorMsg.style.display = 'block';
+            }
+          }
+        } catch (err) {
+          if (errorMsg) {
+            errorMsg.textContent = 'Login error: ' + err.message;
+            errorMsg.style.display = 'block';
+          }
+        } finally {
+          if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.style.opacity = '1';
+            const txt = document.getElementById('btn-login-text');
+            if (txt) txt.textContent = 'Sign In & Open POS';
+          }
+        }
+      });
+    }
+
+    // Lock screen button
+    if (btnLock) {
+      btnLock.addEventListener('click', async () => {
+        await window.electronAPI.logout();
+        this.lockApp();
+        App.showToast('POS locked successfully.', 'info');
+      });
+    }
+
+    // Cloud Pull button
+    if (btnCloudPull) {
+      btnCloudPull.addEventListener('click', () => {
+        this.triggerCloudPull(true);
+      });
+    }
+  },
+
+  async checkAuthSession() {
+    try {
+      const res = await window.electronAPI.checkSession();
+      if (res && res.authenticated) {
+        this.unlockApp(res.user);
+      } else {
+        this.lockApp();
+      }
+    } catch (e) {
+      this.lockApp();
+    }
+  },
+
+  unlockApp(user) {
+    const gate = document.getElementById('login-gate');
+    if (gate) gate.style.display = 'none';
+  },
+
+  lockApp() {
+    const gate = document.getElementById('login-gate');
+    if (gate) {
+      gate.style.display = 'flex';
+      const pass = document.getElementById('login-password');
+      if (pass) {
+        pass.value = '';
+        pass.focus();
+      }
+      const err = document.getElementById('login-error-msg');
+      if (err) err.style.display = 'none';
+    }
+  },
+
+  async triggerCloudPull(userInitiated = false) {
+    if (userInitiated) App.showToast('Syncing with Supabase Cloud...', 'info');
+    try {
+      const res = await window.electronAPI.pullFromCloud();
+      if (res && res.success) {
+        if (userInitiated) App.showToast('Cloud database merged successfully!', 'success');
+        this.checkCloudStatus();
+        // Refresh active view
+        if (this.activeView === 'dashboard' && window.DashboardController) {
+          window.DashboardController.loadDashboard();
+        } else if (this.activeView === 'customers' && window.CustomersController) {
+          window.CustomersController.loadCustomers();
+        } else if (this.activeView === 'reports' && window.ReportsController) {
+          window.ReportsController.loadReports();
+        }
+      } else if (userInitiated) {
+        App.showToast(res ? res.message : 'Cloud sync not available', 'warning');
+      }
+    } catch (err) {
+      if (userInitiated) App.showToast('Cloud sync notice: ' + err.message, 'warning');
+    }
   },
 
   setupSystemButtons() {

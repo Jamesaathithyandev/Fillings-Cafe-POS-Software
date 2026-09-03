@@ -6,6 +6,7 @@ const queries = require('./src/database/queries');
 const excelSync = require('./src/excel/excelSync');
 const backupManager = require('./src/backup/backupManager');
 const supabaseSync = require('./src/supabase/supabaseSync');
+const authManager = require('./src/auth/authManager');
 
 let mainWindow = null;
 
@@ -41,8 +42,9 @@ async function createWindow() {
 // App Initialization
 app.whenReady().then(async () => {
   try {
-    // 1. Initialize SQLite Database
+    // 1. Initialize SQLite Database & Users Table
     await dbManager.initDatabase();
+    await authManager.initUsersTable();
     console.log('Database initialized successfully at:', dbManager.getDbFilePath());
 
     // 2. Initial Excel Sync
@@ -50,16 +52,19 @@ app.whenReady().then(async () => {
       console.warn('Initial Excel sync warning:', err.message);
     });
 
-    // 3. Background Supabase Menu Sync
+    // 3. Background Supabase Sync & Multi-PC Cloud Pull
     setTimeout(async () => {
       try {
         const cats = queries.getAllCategories();
         const items = queries.getAllMenuItems();
         await supabaseSync.syncMenu(cats, items);
+        // Pull down any orders or customers recorded on another PC
+        await supabaseSync.pullFromCloud(dbManager, queries);
+        excelSync.syncExcelWorkbook().catch(() => {});
       } catch (e) {
         console.warn('Supabase initial sync notice:', e.message);
       }
-    }, 4000);
+    }, 3000);
 
     // 4. Register IPC Handlers
     registerIpcHandlers();
@@ -375,5 +380,26 @@ function registerIpcHandlers() {
   // Supabase Cloud Sync Status
   ipcMain.handle('supabase:getStatus', async () => {
     return supabaseSync.checkConnection();
+  });
+
+  // Authentication & Session Management
+  ipcMain.handle('auth:login', async (event, username, password, rememberMe) => {
+    return authManager.login(username, password, rememberMe);
+  });
+
+  ipcMain.handle('auth:logout', async () => {
+    return authManager.logout();
+  });
+
+  ipcMain.handle('auth:checkSession', async () => {
+    return authManager.checkSession();
+  });
+
+  ipcMain.handle('cloud:pullSync', async () => {
+    const res = await supabaseSync.pullFromCloud(dbManager, queries);
+    if (res.success) {
+      excelSync.syncExcelWorkbook().catch(() => {});
+    }
+    return res;
   });
 }
