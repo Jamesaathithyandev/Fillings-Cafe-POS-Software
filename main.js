@@ -1,4 +1,10 @@
 // Sree Sai Fillings Cafe - Electron Main Process
+if (typeof globalThis.WebSocket === 'undefined') {
+  try {
+    globalThis.WebSocket = require('ws');
+  } catch (e) {}
+}
+
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const dbManager = require('./src/database/db');

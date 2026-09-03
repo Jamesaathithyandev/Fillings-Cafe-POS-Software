@@ -11,6 +11,7 @@ const App = {
     this.setupSystemButtons();
     this.checkExcelStatus();
     this.checkCloudStatus();
+    setTimeout(() => this.checkCloudStatus(), 2000);
     
     // Auto sync check every 30s
     setInterval(() => {
