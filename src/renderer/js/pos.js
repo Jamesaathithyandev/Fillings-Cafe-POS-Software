@@ -46,7 +46,7 @@ const POSController = {
       custSearch.addEventListener('input', async (e) => {
         const query = e.target.value.trim();
         if (query.length === 0) {
-          suggestionsBox.classList.remove('show');
+          if (suggestionsBox) suggestionsBox.style.display = 'none';
           return;
         }
 
@@ -54,10 +54,17 @@ const POSController = {
         this.renderCustomerSuggestions(results);
       });
 
+      // Close suggestions on Escape key
+      custSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && suggestionsBox) {
+          suggestionsBox.style.display = 'none';
+        }
+      });
+
       // Close suggestions when clicked outside
       document.addEventListener('click', (e) => {
-        if (!custSearch.contains(e.target) && !suggestionsBox.contains(e.target)) {
-          suggestionsBox.classList.remove('show');
+        if (suggestionsBox && !custSearch.contains(e.target) && !suggestionsBox.contains(e.target)) {
+          suggestionsBox.style.display = 'none';
         }
       });
     }
@@ -159,12 +166,21 @@ const POSController = {
 
     if (!customers || customers.length === 0) {
       box.innerHTML = `
-        <div class="suggestion-create" id="sug-create-new">
+        <div class="suggestion-create" id="sug-create-new" style="cursor:pointer;">
           <svg><use href="#icon-plus"/></svg>
-          No saved customer found &mdash; type new details on right
+          <span>No saved customer found &mdash; type new details on right</span>
         </div>
       `;
       box.style.display = 'block';
+
+      const createBtn = box.querySelector('#sug-create-new');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => {
+          box.style.display = 'none';
+          const nameInput = document.getElementById('pos-input-name');
+          if (nameInput) nameInput.focus();
+        });
+      }
       return;
     }
 
