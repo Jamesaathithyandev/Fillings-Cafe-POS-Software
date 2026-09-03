@@ -104,12 +104,13 @@ const POSController = {
       });
     });
 
-    // 4b. Order Type Buttons (Dine-In vs Takeaway)
+    // 4b. Order Type Buttons (Dine-In vs Takeaway ₹5 vs Takeaway ₹10)
     const typeBtns = document.querySelectorAll('.order-type-btn');
     typeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         const type = btn.getAttribute('data-type') || 'Dine-In';
-        this.setOrderType(type);
+        const fee = parseFloat(btn.getAttribute('data-fee')) || 0;
+        this.setOrderType(type, fee);
       });
     });
 
@@ -410,12 +411,14 @@ const POSController = {
     }
   },
 
-  setOrderType(type) {
+  setOrderType(type, fee = 0) {
     this.orderType = type;
-    this.packagingCharge = type === 'Takeaway' ? 15 : 0;
+    this.packagingCharge = parseFloat(fee) || 0;
 
     document.querySelectorAll('.order-type-btn').forEach(btn => {
-      if (btn.getAttribute('data-type') === type) {
+      const btnType = btn.getAttribute('data-type') || 'Dine-In';
+      const btnFee = parseFloat(btn.getAttribute('data-fee')) || 0;
+      if (btnType === type && btnFee === this.packagingCharge) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
@@ -423,8 +426,12 @@ const POSController = {
     });
 
     const pkgRow = document.getElementById('pos-row-packaging');
+    const pkgValEl = document.getElementById('pos-calc-packaging');
     if (pkgRow) {
-      pkgRow.style.display = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 'flex' : 'none';
+      pkgRow.style.display = (this.packagingCharge > 0 && this.cart.length > 0) ? 'flex' : 'none';
+    }
+    if (pkgValEl) {
+      pkgValEl.textContent = `+ ₹${this.packagingCharge.toFixed(2)}`;
     }
 
     this.updateCartTotals();
@@ -435,7 +442,7 @@ const POSController = {
     this.discount = 0;
     const discountInput = document.getElementById('pos-discount-input');
     if (discountInput) discountInput.value = 0;
-    this.setOrderType('Dine-In');
+    this.setOrderType('Dine-In', 0);
     this.renderCart();
     this.renderMenuGrid();
   },
@@ -506,8 +513,8 @@ const POSController = {
     }
     if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
 
-    // Apply packaging charge (₹15) only when Takeaway is active and there is at least one item
-    const packaging = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 15 : 0;
+    // Apply packaging charge (₹5 or ₹10) only when Takeaway is active and items exist in cart
+    const packaging = (this.cart.length > 0) ? this.packagingCharge : 0;
     const finalTotal = Math.max(0, subtotal + packaging - calculatedDiscount);
 
     const subtotalEl = document.getElementById('pos-calc-subtotal');
@@ -516,7 +523,7 @@ const POSController = {
     const pkgValEl = document.getElementById('pos-calc-packaging');
 
     if (subtotalEl) subtotalEl.textContent = `₹${subtotal.toFixed(2)}`;
-    if (pkgRow) pkgRow.style.display = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 'flex' : 'none';
+    if (pkgRow) pkgRow.style.display = (packaging > 0) ? 'flex' : 'none';
     if (pkgValEl) pkgValEl.textContent = `+ ₹${packaging.toFixed(2)}`;
     if (finalTotalEl) finalTotalEl.textContent = `₹${finalTotal.toFixed(2)}`;
   },
@@ -560,7 +567,8 @@ const POSController = {
       };
     }
 
-    const appliedPkg = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 15 : 0;
+    const appliedPkg = (this.cart.length > 0) ? this.packagingCharge : 0;
+    const orderTypeLabel = (this.orderType === 'Takeaway' && appliedPkg > 0) ? `Takeaway (₹${appliedPkg})` : (this.orderType === 'Takeaway' ? 'Takeaway' : 'Dine-In');
 
     // 2. Build Payload
     const payload = {
@@ -569,7 +577,7 @@ const POSController = {
       discount: this.discount,
       discount_type: this.discountType,
       payment_method: this.paymentMethod,
-      order_type: this.orderType,
+      order_type: orderTypeLabel,
       packaging_charge: appliedPkg,
       notes: ''
     };

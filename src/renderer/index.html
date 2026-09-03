@@ -337,15 +337,19 @@
                 </button>
               </div>
 
-              <!-- Order Type: Dine-In vs Takeaway (+₹15 Packaging) -->
+              <!-- Order Type: Dine-In vs Takeaway (₹5 and ₹10 options) -->
               <div class="order-type-bar">
-                <button type="button" class="order-type-btn active" id="btn-type-dinein" data-type="Dine-In">
+                <button type="button" class="order-type-btn active" id="btn-type-dinein" data-type="Dine-In" data-fee="0">
                   <svg><use href="#icon-pos"/></svg>
                   <span>Dine-In</span>
                 </button>
-                <button type="button" class="order-type-btn" id="btn-type-takeaway" data-type="Takeaway">
+                <button type="button" class="order-type-btn" id="btn-type-takeaway-5" data-type="Takeaway" data-fee="5">
                   <svg><use href="#icon-cart"/></svg>
-                  <span>Takeaway (+₹15)</span>
+                  <span>Takeaway ₹5</span>
+                </button>
+                <button type="button" class="order-type-btn" id="btn-type-takeaway-10" data-type="Takeaway" data-fee="10">
+                  <svg><use href="#icon-cart"/></svg>
+                  <span>Takeaway ₹10</span>
                 </button>
               </div>
 
