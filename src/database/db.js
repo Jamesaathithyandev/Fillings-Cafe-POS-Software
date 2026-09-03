@@ -74,6 +74,10 @@ async function initDatabase(customPath = null) {
   const schemaPath = path.join(__dirname, 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   db.run(schemaSql);
+
+  // Auto-migrate schema for existing databases
+  try { db.run("ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'Dine-In'"); } catch (e) {}
+  try { db.run("ALTER TABLE orders ADD COLUMN packaging_charge REAL NOT NULL DEFAULT 0"); } catch (e) {}
   saveDatabase();
 
   // Pre-seed initial menu data if empty

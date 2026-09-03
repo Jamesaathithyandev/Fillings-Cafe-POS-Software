@@ -46,6 +46,15 @@ const ReceiptController = {
       </div>
     ` : '';
 
+    const orderType = order.order_type || 'Dine-In';
+    const pkgCharge = parseFloat(order.packaging_charge) || 0;
+    const packagingHtml = pkgCharge > 0 ? `
+      <div class="receipt-calc-row">
+        <span>Packaging (Takeaway):</span>
+        <span>+ ₹${pkgCharge.toFixed(2)}</span>
+      </div>
+    ` : '';
+
     return `
       <div class="receipt-header">
         <div class="receipt-brand-title">SREE SAI FILLINGS CAFE</div>
@@ -65,7 +74,7 @@ const ReceiptController = {
           <span><strong>Date:</strong> ${order.order_date}</span>
         </div>
         <div class="receipt-meta-row">
-          <span><strong>Time:</strong> ${order.order_time}</span>
+          <span><strong>Type:</strong> ${orderType.toUpperCase()}</span>
           <span><strong>Pay Mode:</strong> ${order.payment_method}</span>
         </div>
         <div class="receipt-meta-row">
@@ -97,6 +106,7 @@ const ReceiptController = {
           <span>Subtotal:</span>
           <span>₹${parseFloat(order.subtotal).toFixed(2)}</span>
         </div>
+        ${packagingHtml}
         ${discountHtml}
         <div class="receipt-calc-row total">
           <span>NET AMOUNT:</span>

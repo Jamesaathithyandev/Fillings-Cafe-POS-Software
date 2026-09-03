@@ -337,6 +337,18 @@
                 </button>
               </div>
 
+              <!-- Order Type: Dine-In vs Takeaway (+₹15 Packaging) -->
+              <div class="order-type-bar">
+                <button type="button" class="order-type-btn active" id="btn-type-dinein" data-type="Dine-In">
+                  <svg><use href="#icon-pos"/></svg>
+                  <span>Dine-In</span>
+                </button>
+                <button type="button" class="order-type-btn" id="btn-type-takeaway" data-type="Takeaway">
+                  <svg><use href="#icon-cart"/></svg>
+                  <span>Takeaway (+₹15)</span>
+                </button>
+              </div>
+
               <div class="cart-items-list" id="pos-cart-items-list">
                 <div class="cart-empty">
                   <svg viewBox="0 0 120 100"><use href="#illus-empty-cart"/></svg>
@@ -351,6 +363,12 @@
                 <div class="calc-row">
                   <span>Subtotal</span>
                   <span id="pos-calc-subtotal">₹0.00</span>
+                </div>
+
+                <!-- Packaging Charge (Takeaway) -->
+                <div class="calc-row" id="pos-row-packaging" style="display:none;">
+                  <span style="color:var(--amber-400);">Packaging (Takeaway)</span>
+                  <span id="pos-calc-packaging" style="color:var(--amber-400); font-weight:700;">+ ₹15.00</span>
                 </div>
 
                 <!-- Discount -->

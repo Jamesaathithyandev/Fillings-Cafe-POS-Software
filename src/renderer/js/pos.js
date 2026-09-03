@@ -14,6 +14,8 @@ const POSController = {
   discount: 0,
   discountType: 'flat', // 'flat' or 'percent'
   paymentMethod: 'Cash',
+  orderType: 'Dine-In', // 'Dine-In' or 'Takeaway'
+  packagingCharge: 0,   // 0 for Dine-In, 15 for Takeaway
 
   init() {
     this.bindEvents();
@@ -99,6 +101,15 @@ const POSController = {
         payBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.paymentMethod = btn.getAttribute('data-method') || 'Cash';
+      });
+    });
+
+    // 4b. Order Type Buttons (Dine-In vs Takeaway)
+    const typeBtns = document.querySelectorAll('.order-type-btn');
+    typeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-type') || 'Dine-In';
+        this.setOrderType(type);
       });
     });
 
@@ -399,11 +410,32 @@ const POSController = {
     }
   },
 
+  setOrderType(type) {
+    this.orderType = type;
+    this.packagingCharge = type === 'Takeaway' ? 15 : 0;
+
+    document.querySelectorAll('.order-type-btn').forEach(btn => {
+      if (btn.getAttribute('data-type') === type) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    const pkgRow = document.getElementById('pos-row-packaging');
+    if (pkgRow) {
+      pkgRow.style.display = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 'flex' : 'none';
+    }
+
+    this.updateCartTotals();
+  },
+
   clearCart() {
     this.cart = [];
     this.discount = 0;
     const discountInput = document.getElementById('pos-discount-input');
     if (discountInput) discountInput.value = 0;
+    this.setOrderType('Dine-In');
     this.renderCart();
     this.renderMenuGrid();
   },
@@ -474,12 +506,18 @@ const POSController = {
     }
     if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
 
-    const finalTotal = Math.max(0, subtotal - calculatedDiscount);
+    // Apply packaging charge (₹15) only when Takeaway is active and there is at least one item
+    const packaging = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 15 : 0;
+    const finalTotal = Math.max(0, subtotal + packaging - calculatedDiscount);
 
     const subtotalEl = document.getElementById('pos-calc-subtotal');
     const finalTotalEl = document.getElementById('pos-calc-final-total');
+    const pkgRow = document.getElementById('pos-row-packaging');
+    const pkgValEl = document.getElementById('pos-calc-packaging');
 
     if (subtotalEl) subtotalEl.textContent = `₹${subtotal.toFixed(2)}`;
+    if (pkgRow) pkgRow.style.display = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 'flex' : 'none';
+    if (pkgValEl) pkgValEl.textContent = `+ ₹${packaging.toFixed(2)}`;
     if (finalTotalEl) finalTotalEl.textContent = `₹${finalTotal.toFixed(2)}`;
   },
 
@@ -522,6 +560,8 @@ const POSController = {
       };
     }
 
+    const appliedPkg = (this.orderType === 'Takeaway' && this.cart.length > 0) ? 15 : 0;
+
     // 2. Build Payload
     const payload = {
       customer: customerData,
@@ -529,6 +569,8 @@ const POSController = {
       discount: this.discount,
       discount_type: this.discountType,
       payment_method: this.paymentMethod,
+      order_type: this.orderType,
+      packaging_charge: appliedPkg,
       notes: ''
     };
 

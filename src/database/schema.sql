@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS orders (
     discount_type TEXT DEFAULT 'flat',
     final_total REAL NOT NULL,
     payment_method TEXT NOT NULL,
+    order_type TEXT NOT NULL DEFAULT 'Dine-In',
+    packaging_charge REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'COMPLETED',
     notes TEXT DEFAULT '',
     created_at TEXT NOT NULL,

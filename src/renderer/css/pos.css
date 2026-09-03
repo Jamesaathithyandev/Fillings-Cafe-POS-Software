@@ -13,13 +13,20 @@
    Customer Strip
    ---------------------------------------------------------------- */
 .pos-customer-strip {
-  padding: 12px 20px;
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  padding: 0 18px;
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow: visible;
+  position: relative;
+  z-index: 50;
 }
 
 /* Search Box */
@@ -209,8 +216,10 @@
    ---------------------------------------------------------------- */
 .pos-workspace {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
+  height: calc(100% - 54px);
 }
 
 /* ----------------------------------------------------------------
@@ -218,6 +227,9 @@
    ---------------------------------------------------------------- */
 .pos-menu-section {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -420,17 +432,64 @@
    Cart / Order Panel (Right)
    ---------------------------------------------------------------- */
 .pos-cart-section {
-  width: 330px;
+  width: 350px;
+  min-width: 350px;
   flex-shrink: 0;
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
+  border-left: 1px solid var(--border-1);
   overflow: hidden;
+}
+
+/* Order Type: Dine In vs Takeaway */
+.order-type-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.18);
+  border-bottom: 1px solid var(--border-1);
+  flex-shrink: 0;
+}
+
+.order-type-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-2);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.order-type-btn svg { width: 14px; height: 14px; }
+.order-type-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+.order-type-btn.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(234, 88, 12, 0.16) 100%);
+  border-color: rgba(245, 158, 11, 0.55);
+  color: var(--amber-400);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.18);
+  font-weight: 700;
 }
 
 /* Cart Header */
 .cart-header {
-  padding: 14px 18px;
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;

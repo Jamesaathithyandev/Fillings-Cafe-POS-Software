@@ -503,6 +503,19 @@ svg use { pointer-events: none; }
   flex-direction: column;
 }
 
+/* POS view is strictly viewport-locked: billing panel remains fixed */
+#view-pos {
+  height: 100%;
+  max-height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  flex: 1;
+}
+
+.content-area:has(#view-pos.active) {
+  overflow: hidden;
+}
+
 /* ----------------------------------------------------------------
    8. Buttons
    ---------------------------------------------------------------- */

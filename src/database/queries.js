@@ -242,6 +242,8 @@ function saveOrder(orderPayload) {
     discount = 0,
     discount_type = 'flat', // 'flat' or 'percent'
     payment_method = 'Cash',
+    order_type = 'Dine-In',
+    packaging_charge = 0,
     notes = ''
   } = orderPayload;
 
@@ -272,7 +274,8 @@ function saveOrder(orderPayload) {
   }
   if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
 
-  const finalTotal = Math.max(0, subtotal - calculatedDiscount);
+  const pkgCharge = parseFloat(packaging_charge) || 0;
+  const finalTotal = Math.max(0, subtotal + pkgCharge - calculatedDiscount);
 
   // 3. Prepare Order Dates
   const now = new Date();
@@ -294,11 +297,13 @@ function saveOrder(orderPayload) {
     INSERT INTO orders (
       order_number, customer_id, customer_name, customer_phone,
       order_date, order_time, subtotal, discount, discount_type,
+      packaging_charge, order_type,
       final_total, payment_method, status, notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?)
   `, [
     order_number, savedCustomer.id, savedCustomer.name, savedCustomer.phone,
     order_date, order_time, subtotal, calculatedDiscount, discount_type,
+    pkgCharge, order_type,
     finalTotal, payment_method, notes.trim(), created_at
   ]);
 
