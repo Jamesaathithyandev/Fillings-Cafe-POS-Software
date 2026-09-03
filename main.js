@@ -120,19 +120,51 @@ function registerIpcHandlers() {
           body { 
             font-family: 'Courier New', Courier, monospace; 
             font-size: 12px; 
-            margin: 5mm; 
+            margin: 4mm; 
             color: #000;
             background: #fff;
           }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .bold { font-weight: bold; }
-          .divider { border-top: 1px dashed #000; margin: 6px 0; }
-          .table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-          .table th, .table td { padding: 3px 0; }
-          .title { font-size: 15px; font-weight: bold; }
-          .subtitle { font-size: 11px; }
-          .summary-row { display: flex; justify-content: space-between; padding: 2px 0; }
+          
+          .receipt-header { text-align: center; margin-bottom: 10px; }
+          .receipt-brand-title { font-size: 16px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; }
+          .receipt-brand-tagline { font-size: 10px; margin-top: 2px; }
+          .receipt-brand-address { font-size: 10px; margin-top: 4px; line-height: 1.3; }
+          .receipt-brand-phone { font-size: 11px; font-weight: 700; margin-top: 2px; }
+          .receipt-divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .receipt-meta-grid { font-size: 11px; display: flex; flex-direction: column; gap: 3px; }
+          .receipt-meta-row { display: flex; justify-content: space-between; }
+          .receipt-items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+          .receipt-items-table th { border-bottom: 1px dashed #000; padding: 4px 0; text-transform: uppercase; font-size: 10px; }
+          .receipt-items-table td { padding: 3px 0; }
+          .receipt-calc-table { font-size: 11px; margin-top: 4px; }
+          .receipt-calc-row { display: flex; justify-content: space-between; padding: 2px 0; }
+          .receipt-calc-row.total { font-size: 14px; font-weight: 900; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; margin: 4px 0; }
+          .receipt-footer { text-align: center; font-size: 10px; margin-top: 10px; line-height: 1.4; }
+
+          /* Kitchen Order Ticket (Chef Slip) */
+          .kot-slip { padding-top: 6px; }
+          .kot-title { font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; }
+          .kot-subtitle { font-size: 11px; font-weight: 700; text-align: center; margin-top: 2px; }
+          .kot-badge { display: inline-block; background: #000; color: #fff; font-weight: 900; font-size: 12px; padding: 2px 8px; border-radius: 3px; margin-top: 2px; }
+          .kot-items-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+          .kot-items-table th { border-bottom: 2px solid #000; padding: 5px 0; font-size: 11.5px; font-weight: 900; text-transform: uppercase; }
+          .kot-items-table td { padding: 5px 0; font-size: 13px; border-bottom: 1px dashed #ccc; }
+          .kot-qty { font-size: 15px; font-weight: 900; text-align: center; color: #000; }
+          .kot-name { font-weight: 700; }
+
+          /* Tear Divider: completely invisible on printed paper with auto-cut page-break */
+          .receipt-tear-divider {
+            page-break-after: always;
+            break-after: page;
+            height: 12mm;
+            overflow: hidden;
+            visibility: hidden;
+            margin: 0;
+            padding: 0;
+          }
         </style>
       </head>
       <body>

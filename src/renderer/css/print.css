@@ -223,8 +223,10 @@
   .receipt-tear-divider {
     page-break-after: always;
     break-after: page;
-    margin-top: 15mm;
-    margin-bottom: 15mm;
-    background: transparent;
+    height: 12mm;
+    overflow: hidden;
+    visibility: hidden;
+    margin: 0;
+    padding: 0;
   }
 }
