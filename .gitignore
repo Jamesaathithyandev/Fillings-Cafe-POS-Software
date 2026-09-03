@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+data_test/
+*.db
+*.db-journal
+scripts/create_shortcut.vbs
+scripts/create_shortcut.ps1

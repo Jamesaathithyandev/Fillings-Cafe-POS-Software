@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sree Sai Fillings Cafe - POS & Customer Database</title>
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/pos.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/customers.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/reports.css">
+  <link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+  <div class="app-layout">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar">
+      <div class="brand-header">
+        <div class="brand-icon">🍟</div>
+        <div>
+          <div class="brand-title">Sree Sai Fillings</div>
+          <div class="brand-tagline">Live & Xclusive POS</div>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <div class="nav-item prominent" id="nav-pos" data-view="pos">
+          <span class="icon">➕</span>
+          <span>ADD ORDER</span>
+          <span class="badge">F1</span>
+        </div>
+
+        <div class="nav-item active" id="nav-dashboard" data-view="dashboard">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </div>
+
+        <div class="nav-item" id="nav-customers" data-view="customers">
+          <span class="icon">👥</span>
+          <span>Customer DB</span>
+          <span class="badge">F2</span>
+        </div>
+
+        <div class="nav-item" id="nav-menu" data-view="menu">
+          <span class="icon">🍔</span>
+          <span>Menu Manager</span>
+        </div>
+
+        <div class="nav-item" id="nav-reports" data-view="reports">
+          <span class="icon">📈</span>
+          <span>Sales & Reports</span>
+        </div>
+
+        <div class="nav-item" id="nav-backup" data-view="backup">
+          <span class="icon">💾</span>
+          <span>Excel & Backup</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sync-status-bar" id="sidebar-sync-bar">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="status-dot" id="sync-dot"></span>
+            <span id="sync-text">Excel Synced</span>
+          </div>
+          <button class="btn-mini-sync" id="btn-quick-sync" title="Sync to Business_Data.xlsx">Sync Now</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11px;">
+          <span>Cheran Ma Nagar, CBE</span>
+          <span id="app-ver-tag">v1.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-wrapper">
+      
+      <!-- Top Application Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h2 class="page-title" id="page-heading">Main Dashboard</h2>
+        </div>
+
+        <div class="topbar-right">
+          <div class="shortcut-pill">
+            <kbd>F1</kbd> Add Order
+          </div>
+          <div class="shortcut-pill">
+            <kbd>F2</kbd> Search Customer
+          </div>
+          <div class="clock-widget" id="live-clock">
+            🕒 Loading...
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-open-excel" title="Open Business_Data.xlsx">
+            📊 Open Excel
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-open-data-dir" title="Open Application Data Folder">
+            📁 Data Folder
+          </button>
+        </div>
+      </header>
+
+      <!-- View Containers Area -->
+      <div class="content-area">
+        
+        <!-- 1. DASHBOARD VIEW -->
+        <section class="view-section active" id="view-dashboard">
+          <div class="dashboard-container">
+            
+            <div class="dashboard-hero">
+              <div class="hero-text">
+                <h1>Welcome to Sree Sai Fillings Cafe</h1>
+                <p>Live & Xclusive Eat Club • Cheran Ma Nagar, Coimbatore • Phone: 82200 88119</p>
+              </div>
+              <div class="hero-quick-actions">
+                <button class="btn btn-primary btn-lg" id="btn-dash-add-order">
+                  ➕ &nbsp; + ADD ORDER (F1)
+                </button>
+                <button class="btn btn-secondary" id="btn-dash-search-cust">
+                  👥 Search Customer
+                </button>
+              </div>
+            </div>
+
+            <!-- KPI Cards Grid -->
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <span class="kpi-title">Today's Sales</span>
+                  <span class="kpi-icon">💰</span>
+                </div>
+                <div class="kpi-value" id="kpi-today-sales">₹0.00</div>
+                <div class="kpi-subtitle" id="kpi-today-orders">0 Orders Today</div>
+              </div>
+
+              <div class="kpi-card secondary">
+                <div class="kpi-header">
+                  <span class="kpi-title">This Month Sales</span>
+                  <span class="kpi-icon">📅</span>
+                </div>
+                <div class="kpi-value" id="kpi-month-sales">₹0.00</div>
+                <div class="kpi-subtitle" id="kpi-month-orders">0 Orders This Month</div>
+              </div>
+
+              <div class="kpi-card info">
+                <div class="kpi-header">
+                  <span class="kpi-title">Total Customers</span>
+                  <span class="kpi-icon">👥</span>
+                </div>
+                <div class="kpi-value" id="kpi-total-customers">0</div>
+                <div class="kpi-subtitle">Registered In Database</div>
+              </div>
+
+              <div class="kpi-card success">
+                <div class="kpi-header">
+                  <span class="kpi-title">Average Order Value</span>
+                  <span class="kpi-icon">📈</span>
+                </div>
+                <div class="kpi-value" id="kpi-aov">₹0.00</div>
+                <div class="kpi-subtitle" id="kpi-total-orders-all">Across All Orders</div>
+              </div>
+            </div>
+
+            <!-- Dashboard 2-Column Section -->
+            <div class="dashboard-grid-2col">
+              
+              <!-- Recent Orders Table -->
+              <div class="content-card">
+                <div class="content-card-header">
+                  <span class="content-card-title">Recent Orders</span>
+                  <button class="btn btn-secondary btn-sm" id="btn-dash-view-all-orders">View Reports</button>
+                </div>
+                <div class="data-table-wrapper">
+                  <table class="data-table" id="dashboard-recent-orders-table">
+                    <thead>
+                      <tr>
+                        <th>Order #</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Date & Time</th>
+                        <th>Amount</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboard-recent-orders-body">
+                      <!-- Filled by JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Top Selling Items -->
+              <div class="content-card">
+                <div class="content-card-header">
+                  <span class="content-card-title">Top Selling Items</span>
+                </div>
+                <div class="top-items-list" id="dashboard-top-items-list">
+                  <!-- Filled by JS -->
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 2. ADD ORDER / POS VIEW -->
+        <section class="view-section" id="view-pos">
+          <div class="pos-container">
+            
+            <!-- Customer Selector Bar -->
+            <div class="pos-customer-strip">
+              <div class="customer-search-box">
+                <span class="customer-search-icon">🔍</span>
+                <input type="text" id="pos-customer-search-input" class="customer-search-input" placeholder="Search customer (phone or name)..." autocomplete="off">
+                <div class="customer-suggestions" id="pos-customer-suggestions"></div>
+              </div>
+
+              <!-- When Customer Selected -->
+              <div class="customer-active-badge" id="pos-customer-active-badge" style="display:none;">
+                <div>
+                  <div class="customer-badge-name" id="pos-badge-name">Raj Kumar</div>
+                  <div class="customer-badge-phone" id="pos-badge-phone">9876543210</div>
+                </div>
+                <div class="customer-badge-metric" id="pos-badge-stats">
+                  Total: ₹0.00 • 0 Orders
+                </div>
+                <button class="btn-clear-customer" id="btn-pos-clear-customer" title="Change Customer">✕</button>
+              </div>
+
+              <!-- Quick New Customer Fields (Inline) -->
+              <div class="customer-quick-form" id="pos-customer-quick-form">
+                <input type="text" id="pos-input-name" placeholder="Customer Name *" style="width:160px;">
+                <input type="text" id="pos-input-phone" placeholder="Phone Number *" style="width:140px;">
+                <input type="text" id="pos-input-address" placeholder="Address (Optional)" style="flex:1;">
+                <input type="text" id="pos-input-notes" placeholder="Notes" style="width:130px;">
+              </div>
+            </div>
+
+            <!-- POS Workspace: Menu + Cart -->
+            <div class="pos-workspace">
+              
+              <!-- Left/Center Menu Section -->
+              <div class="pos-menu-section">
+                
+                <div class="menu-filter-bar">
+                  <input type="text" id="pos-menu-search" class="menu-search-input" placeholder="Search menu items (e.g. Burger, Mojito, Chicken Crispy, Maggie)...">
+                  
+                  <div class="category-tabs-wrapper" id="pos-category-tabs">
+                    <!-- Category Tabs injected by JS -->
+                  </div>
+                </div>
+
+                <div class="menu-items-scroll">
+                  <div class="menu-grid" id="pos-menu-grid">
+                    <!-- Menu Cards injected by JS -->
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Right Cart / Order Section -->
+              <div class="pos-cart-section">
+                
+                <div class="cart-header">
+                  <div class="cart-order-num">Bill <span id="pos-current-order-num">ORD-000001</span></div>
+                  <button class="btn-clear-cart" id="btn-pos-clear-cart">Clear Cart</button>
+                </div>
+
+                <div class="cart-items-list" id="pos-cart-items-list">
+                  <div class="cart-empty-state">
+                    <span style="font-size:32px;">🛒</span>
+                    <div>Your cart is empty</div>
+                    <div style="font-size:12px;">Click any menu item on the left to add</div>
+                  </div>
+                </div>
+
+                <div class="cart-footer">
+                  <div class="calc-row">
+                    <span>Subtotal</span>
+                    <span id="pos-calc-subtotal" style="font-weight:700; color:#FFF;">₹0.00</span>
+                  </div>
+
+                  <div class="calc-row">
+                    <span>Discount</span>
+                    <div class="discount-input-box">
+                      <select id="pos-discount-type" style="background:var(--bg-input); border:1px solid var(--border-subtle); color:#FFF; border-radius:4px; font-size:11px; padding:3px;">
+                        <option value="flat">₹ Flat</option>
+                        <option value="percent">% Off</option>
+                      </select>
+                      <input type="number" id="pos-discount-input" class="discount-input" value="0" min="0">
+                    </div>
+                  </div>
+
+                  <div class="calc-row final">
+                    <span style="font-weight:700; font-size:15px;">TOTAL TO PAY</span>
+                    <span class="final-amount" id="pos-calc-final-total">₹0.00</span>
+                  </div>
+
+                  <!-- Payment Method Selector -->
+                  <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-top:2px;">
+                    Payment Method
+                  </div>
+                  <div class="payment-methods-grid">
+                    <button class="btn-payment active" data-method="Cash">💵 Cash</button>
+                    <button class="btn-payment" data-method="UPI">📱 UPI</button>
+                    <button class="btn-payment" data-method="Card">💳 Card</button>
+                    <button class="btn-payment" data-method="Other">🔄 Other</button>
+                  </div>
+
+                  <!-- Cart CTA Buttons -->
+                  <div class="cart-action-buttons">
+                    <button class="btn btn-primary btn-lg" id="btn-pos-save-print">
+                      🖨️ SAVE & PRINT BILL (F9)
+                    </button>
+                    <button class="btn btn-secondary" id="btn-pos-save-only">
+                      💾 Save Order Only (F10)
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 3. CUSTOMER DATABASE VIEW -->
+        <section class="view-section" id="view-customers">
+          <div class="customers-container">
+            
+            <div class="customers-header-bar">
+              <div style="position:relative; width:380px;">
+                <input type="text" id="cust-search-input" class="form-control" style="width:100%;" placeholder="Search customers by name, phone, email...">
+              </div>
+
+              <div class="customer-filters-strip">
+                <span class="filter-chip active" data-segment="all">All Customers</span>
+                <span class="filter-chip" data-segment="high">High Spenders (₹2,000+)</span>
+                <span class="filter-chip" data-segment="frequent">Frequent (3+ Orders)</span>
+                <span class="filter-chip" data-segment="recent">Ordered Recently</span>
+                <button class="btn btn-secondary btn-sm" id="btn-export-customers-excel">📊 Export Customers</button>
+              </div>
+            </div>
+
+            <div class="content-card" style="flex:1;">
+              <div class="data-table-wrapper">
+                <table class="data-table" id="customers-table">
+                  <thead>
+                    <tr>
+                      <th>Customer Code</th>
+                      <th>Customer Name</th>
+                      <th>Phone Number</th>
+                      <th>Email</th>
+                      <th>Address</th>
+                      <th>Total Orders</th>
+                      <th>Lifetime Spent</th>
+                      <th>Last Order Date</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="customers-table-body">
+                    <!-- Injected by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 4. MENU MANAGEMENT VIEW -->
+        <section class="view-section" id="view-menu">
+          <div class="menu-mgmt-container">
+            
+            <div class="menu-mgmt-header">
+              <div class="menu-toolbar">
+                <input type="text" id="menu-mgmt-search" class="form-control" placeholder="Search items..." style="width:260px;">
+                <select id="menu-mgmt-cat-filter" class="form-control" style="width:200px;">
+                  <option value="ALL">All Categories</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+
+              <div>
+                <button class="btn btn-primary" id="btn-menu-add-new">
+                  ➕ + ADD MENU ITEM
+                </button>
+              </div>
+            </div>
+
+            <div class="content-card" style="flex:1;">
+              <div class="data-table-wrapper">
+                <table class="data-table" id="menu-mgmt-table">
+                  <thead>
+                    <tr>
+                      <th>Item Code</th>
+                      <th>Item Name</th>
+                      <th>Category</th>
+                      <th>Price (₹)</th>
+                      <th>Description</th>
+                      <th>Status (Active)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="menu-mgmt-table-body">
+                    <!-- Injected by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 5. SALES & REPORTS VIEW -->
+        <section class="view-section" id="view-reports">
+          <div class="reports-container">
+            
+            <div class="report-tabs">
+              <button class="report-tab-btn active" data-report="daily">Daily Sales</button>
+              <button class="report-tab-btn" data-report="monthly">Monthly Sales</button>
+              <button class="report-tab-btn" data-report="custom">Date Range Analysis</button>
+            </div>
+
+            <!-- Date Range Filter (Visible on custom tab or top) -->
+            <div class="date-range-filter-box" id="reports-date-filter" style="display:none;">
+              <label style="font-size:12px; font-weight:700; color:var(--text-muted);">FROM:</label>
+              <input type="date" id="report-from-date">
+              <label style="font-size:12px; font-weight:700; color:var(--text-muted);">TO:</label>
+              <input type="date" id="report-to-date">
+              <button class="btn btn-primary btn-sm" id="btn-run-custom-report">Generate Report</button>
+            </div>
+
+            <!-- Summary KPI Breakdown for Selected Report -->
+            <div class="payment-breakdown-cards" id="reports-kpi-cards">
+              <div class="pay-card">
+                <span class="pay-mode-lbl">💵 Cash Sales</span>
+                <span class="pay-mode-val" id="rep-cash-val">₹0.00</span>
+              </div>
+              <div class="pay-card">
+                <span class="pay-mode-lbl">📱 UPI Sales</span>
+                <span class="pay-mode-val" id="rep-upi-val">₹0.00</span>
+              </div>
+              <div class="pay-card">
+                <span class="pay-mode-lbl">💳 Card Sales</span>
+                <span class="pay-mode-val" id="rep-card-val">₹0.00</span>
+              </div>
+              <div class="pay-card">
+                <span class="pay-mode-lbl">💰 Total Revenue</span>
+                <span class="pay-mode-val" id="rep-total-val">₹0.00</span>
+              </div>
+            </div>
+
+            <!-- Report Data Table -->
+            <div class="content-card" style="flex:1;">
+              <div class="content-card-header">
+                <span class="content-card-title" id="reports-table-title">Daily Sales Records</span>
+                <button class="btn btn-secondary btn-sm" id="btn-export-reports-excel">📊 Export To Excel</button>
+              </div>
+              <div class="data-table-wrapper">
+                <table class="data-table" id="reports-main-table">
+                  <thead id="reports-table-head">
+                    <!-- Dynamic Headers by JS -->
+                  </thead>
+                  <tbody id="reports-table-body">
+                    <!-- Dynamic Rows by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 6. BACKUP & EXCEL SYNC VIEW -->
+        <section class="view-section" id="view-backup">
+          <div class="dashboard-container">
+            
+            <div class="dashboard-hero">
+              <div class="hero-text">
+                <h1>Excel Synchronization & Database Backups</h1>
+                <p>Maintain your local Excel workbook and create safe database backups with one click.</p>
+              </div>
+            </div>
+
+            <div class="dashboard-grid-2col">
+              
+              <!-- Excel Sync Card -->
+              <div class="content-card">
+                <div class="content-card-header">
+                  <span class="content-card-title">Excel Synchronization (Business_Data.xlsx)</span>
+                </div>
+                <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+                  <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+                    The software continuously synchronizes data across 6 sheets:
+                    <strong style="color:#FFF;">CUSTOMERS, ORDERS, ORDER_ITEMS, MENU, DAILY_SALES, MONTHLY_SALES</strong>.
+                  </p>
+                  
+                  <div style="background:var(--bg-input); padding:14px; border-radius:var(--radius-md); font-size:13px; border:1px solid var(--border-subtle); display:flex; flex-direction:column; gap:6px;">
+                    <div class="info-row">
+                      <span class="info-label">Workbook Location:</span>
+                      <span class="info-value" id="backup-excel-path">Business_Data.xlsx</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Last Synchronized:</span>
+                      <span class="info-value" id="backup-excel-last-sync">Just now</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Status:</span>
+                      <span class="info-value" id="backup-excel-status" style="color:var(--success);">Ready</span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap:12px;">
+                    <button class="btn btn-primary" id="btn-manual-sync-excel">
+                      🔄 Sync Business_Data.xlsx Now
+                    </button>
+                    <button class="btn btn-secondary" id="btn-export-excel-custom">
+                      📁 Export Custom Excel Copy...
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Database Backup Card -->
+              <div class="content-card">
+                <div class="content-card-header">
+                  <span class="content-card-title">Database Snapshot Backup</span>
+                </div>
+                <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+                  <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+                    Create a full SQLite database snapshot (.db) along with an Excel snapshot. Safe to copy to a USB stick or backup drive.
+                  </p>
+
+                  <div style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="btn btn-success" id="btn-create-db-backup">
+                      💾 + CREATE FULL BACKUP NOW
+                    </button>
+                    <button class="btn btn-secondary" id="btn-restore-db-backup">
+                      📥 RESTORE FROM BACKUP FILE...
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Existing Backups List -->
+            <div class="content-card" style="margin-top:10px;">
+              <div class="content-card-header">
+                <span class="content-card-title">Recent Backups</span>
+              </div>
+              <div class="data-table-wrapper">
+                <table class="data-table" id="backups-table">
+                  <thead>
+                    <tr>
+                      <th>Backup File</th>
+                      <th>Date Created</th>
+                      <th>File Size</th>
+                      <th>Path</th>
+                    </tr>
+                  </thead>
+                  <tbody id="backups-table-body">
+                    <!-- Injected by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL DIALOGS -->
+  <!-- ============================================== -->
+
+  <!-- 1. RECEIPT / BILL PRINT MODAL -->
+  <div class="modal-overlay" id="modal-receipt">
+    <div class="modal-box" style="max-width:440px;">
+      <div class="modal-header">
+        <span class="modal-title">Receipt Preview</span>
+        <button class="btn-close-modal" id="btn-close-receipt">✕</button>
+      </div>
+      <div class="modal-body" style="background:#E2E8F0;">
+        <div class="receipt-modal-content" id="receipt-printable-area">
+          <!-- Filled dynamically by receipt.js -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-receipt-dismiss">Done</button>
+        <button class="btn btn-primary" id="btn-receipt-print-action">🖨️ Print Receipt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. CUSTOMER ORDER HISTORY & PROFILE DRAWER -->
+  <div class="customer-drawer" id="customer-history-drawer">
+    <div class="drawer-header">
+      <div style="font-family:var(--font-heading); font-size:18px; font-weight:800; color:#FFF;" id="drawer-cust-name">
+        Raj Kumar
+      </div>
+      <button class="btn-close-modal" id="btn-close-drawer">✕</button>
+    </div>
+    <div class="drawer-body">
+      
+      <!-- Metrics -->
+      <div class="customer-metric-grid">
+        <div class="c-metric-card">
+          <div class="c-metric-val" id="drawer-total-spent">₹0.00</div>
+          <div class="c-metric-lbl">Total Spent</div>
+        </div>
+        <div class="c-metric-card">
+          <div class="c-metric-val" id="drawer-total-orders">0</div>
+          <div class="c-metric-lbl">Total Orders</div>
+        </div>
+        <div class="c-metric-card">
+          <div class="c-metric-val" id="drawer-last-order">N/A</div>
+          <div class="c-metric-lbl">Last Order</div>
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="customer-info-box">
+        <div class="info-row">
+          <span class="info-label">Customer ID:</span>
+          <span class="info-value" id="drawer-cust-code">CUST-000001</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Phone:</span>
+          <span class="info-value" id="drawer-cust-phone">9876543210</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Email:</span>
+          <span class="info-value" id="drawer-cust-email">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Address:</span>
+          <span class="info-value" id="drawer-cust-address">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Notes:</span>
+          <span class="info-value" id="drawer-cust-notes">-</span>
+        </div>
+      </div>
+
+      <div style="font-family:var(--font-heading); font-size:15px; font-weight:700; color:#FFF; margin-top:8px;">
+        Order History
+      </div>
+
+      <div class="order-history-list" id="drawer-orders-list">
+        <!-- Injected by JS -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. ORDER DETAILS MODAL (VIEW / CANCEL ORDER) -->
+  <div class="modal-overlay" id="modal-order-details">
+    <div class="modal-box" style="max-width:540px;">
+      <div class="modal-header">
+        <span class="modal-title" id="order-details-title">Order Details</span>
+        <button class="btn-close-modal" id="btn-close-order-details">✕</button>
+      </div>
+      <div class="modal-body" id="order-details-content">
+        <!-- Injected by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-cancel-order-action">Cancel Order</button>
+        <button class="btn btn-primary btn-sm" id="btn-reprint-order-action">🖨️ Re-Print Bill</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ADD / EDIT MENU ITEM MODAL -->
+  <div class="modal-overlay" id="modal-menu-item">
+    <div class="modal-box" style="max-width:500px;">
+      <div class="modal-header">
+        <span class="modal-title" id="menu-modal-title">Add Menu Item</span>
+        <button class="btn-close-modal" id="btn-close-menu-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-menu-item" style="display:flex; flex-direction:column; gap:14px;">
+          <input type="hidden" id="menu-item-id">
+          
+          <div class="input-group">
+            <label class="input-label">Item Name *</label>
+            <input type="text" id="menu-item-name" class="form-control" required placeholder="e.g. Peri Peri Chicken Wrap">
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Category *</label>
+            <select id="menu-item-category" class="form-control" required>
+              <!-- Filled by JS -->
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Price (₹) *</label>
+            <input type="number" id="menu-item-price" class="form-control" step="0.01" min="0" required placeholder="e.g. 119.00">
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Description (Optional)</label>
+            <textarea id="menu-item-desc" class="form-control" rows="2" placeholder="Item ingredients / details"></textarea>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+            <label class="switch">
+              <input type="checkbox" id="menu-item-active" checked>
+              <span class="slider"></span>
+            </label>
+            <span style="font-size:13px; font-weight:600; color:#FFF;">Active in Menu (Available for Order)</span>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-menu-item">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-menu-item">Save Menu Item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic Scripts -->
+  <script src="js/app.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/pos.js"></script>
+  <script src="js/customers.js"></script>
+  <script src="js/menu.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/backup.js"></script>
+  <script src="js/receipt.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+/* Sree Sai Fillings Cafe - Thermal & Standard Printable Receipt Styles */
+
+.receipt-modal-content {
+  background: #FFF;
+  color: #000;
+  padding: 24px;
+  border-radius: var(--radius-md);
+  max-width: 380px;
+  margin: 0 auto;
+  font-family: 'Courier New', Courier, monospace;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.receipt-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.receipt-brand-title {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.receipt-brand-tagline {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.receipt-brand-address {
+  font-size: 10px;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.receipt-brand-phone {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.receipt-divider {
+  border-top: 1px dashed #333;
+  margin: 8px 0;
+}
+
+.receipt-meta-grid {
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.receipt-meta-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipt-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin: 8px 0;
+}
+
+.receipt-items-table th {
+  border-bottom: 1px dashed #333;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.receipt-items-table td {
+  padding: 3px 0;
+  vertical-align: top;
+}
+
+.receipt-calc-table {
+  width: 100%;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.receipt-calc-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.receipt-calc-row.total {
+  font-size: 14px;
+  font-weight: 900;
+  border-top: 1px dashed #000;
+  border-bottom: 1px dashed #000;
+  padding: 6px 0;
+  margin: 4px 0;
+}
+
+.receipt-footer {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 12px;
+  line-height: 1.4;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-modal-content, .receipt-modal-content * {
+    visibility: visible;
+  }
+  .receipt-modal-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "fillings-database-software",
+  "version": "1.0.0",
+  "description": "Sree Sai Fillings Cafe - Windows Desktop Billing & Customer Database Software",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/test_suite.js",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "billing",
+    "pos",
+    "cafe",
+    "restaurant",
+    "customer-database",
+    "excel-sync",
+    "sqlite"
+  ],
+  "author": "Sree Sai Fillings Cafe",
+  "license": "ISC",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "sql.js": "^1.12.0"
+  },
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.fillingscafe.pos",
+    "productName": "Sree Sai Fillings POS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sree Sai Fillings POS"
+    }
+  }
+}
