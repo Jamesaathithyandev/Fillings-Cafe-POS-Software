@@ -3,17 +3,22 @@
 .receipt-modal-content {
   background: #FFF;
   color: #000;
-  padding: 24px;
-  border-radius: var(--radius-md);
+  padding: 20px;
+  border-radius: var(--r-md);
   max-width: 380px;
+  width: 100%;
   margin: 0 auto;
   font-family: 'Courier New', Courier, monospace;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.receipt-slip {
+  width: 100%;
 }
 
 .receipt-header {
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .receipt-brand-title {
@@ -61,12 +66,14 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .receipt-items-table th {
   border-bottom: 1px dashed #333;
   padding: 4px 0;
+  text-transform: uppercase;
+  font-size: 10px;
   text-align: left;
 }
 
@@ -99,10 +106,104 @@
 .receipt-footer {
   text-align: center;
   font-size: 10px;
-  margin-top: 12px;
+  margin-top: 10px;
   line-height: 1.4;
 }
 
+/* ----------------------------------------------------------------
+   Kitchen Order Ticket (KOT) / Chef Slip Styles
+   ---------------------------------------------------------------- */
+.kot-slip {
+  background: #FFF;
+  color: #000;
+  padding-top: 6px;
+}
+
+.kot-slip .kot-title {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.kot-slip .kot-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.kot-slip .kot-badge {
+  display: inline-block;
+  background: #000;
+  color: #FFF;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.kot-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.kot-items-table th {
+  border-bottom: 2px solid #000;
+  padding: 5px 0;
+  font-size: 11.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.kot-items-table td {
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px dashed #ccc;
+}
+
+.kot-items-table .kot-qty {
+  font-size: 15px;
+  font-weight: 900;
+  text-align: center;
+  color: #000;
+}
+
+.kot-items-table .kot-name {
+  font-weight: 700;
+}
+
+/* ----------------------------------------------------------------
+   Tear Divider between Customer Bill and Chef Slip
+   ---------------------------------------------------------------- */
+.receipt-tear-divider {
+  text-align: center;
+  margin: 18px 0;
+  padding: 8px 0;
+  color: #555;
+  font-size: 10px;
+  font-weight: 700;
+  user-select: none;
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.receipt-tear-divider .tear-line {
+  letter-spacing: 2px;
+  color: #888;
+}
+
+.receipt-tear-divider .tear-text {
+  margin: 3px 0;
+  font-size: 11px;
+  color: #222;
+}
+
+/* ----------------------------------------------------------------
+   Media Print
+   ---------------------------------------------------------------- */
 @media print {
   body * {
     visibility: hidden;
@@ -118,5 +219,12 @@
     box-shadow: none;
     padding: 0;
     margin: 0;
+  }
+  .receipt-tear-divider {
+    page-break-after: always;
+    break-after: page;
+    margin-top: 15mm;
+    margin-bottom: 15mm;
+    background: transparent;
   }
 }

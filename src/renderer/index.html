@@ -756,24 +756,41 @@
      MODALS
      ============================================================ -->
 
-<!-- Receipt Modal -->
+<!-- Receipt & Kitchen Slip Modal -->
 <div class="modal-overlay" id="modal-receipt">
-  <div class="modal-box" style="max-width:440px;">
+  <div class="modal-box" style="max-width:460px;">
     <div class="modal-header">
-      <span class="modal-title">Receipt Preview</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <svg style="width:18px; height:18px; color:var(--amber-400);"><use href="#icon-print"/></svg>
+        <span class="modal-title">Receipt &amp; Kitchen Slip</span>
+      </div>
       <button class="btn-close" id="btn-close-receipt"><svg><use href="#icon-close"/></svg></button>
     </div>
-    <div class="modal-body" style="background:#E2E8F0; padding:16px;">
+
+    <!-- Preview Mode Tabs -->
+    <div class="receipt-preview-tabs" style="display:flex; background:rgba(0,0,0,0.25); border-bottom:1px solid var(--border-1); padding:8px 16px; gap:8px;">
+      <button type="button" class="btn btn-sm receipt-tab-btn active" id="tab-receipt-both" data-view="both" style="font-size:11.5px; padding:4px 10px;">Both Slips (2 Bills)</button>
+      <button type="button" class="btn btn-sm receipt-tab-btn" id="tab-receipt-customer" data-view="customer" style="font-size:11.5px; padding:4px 10px;">Customer Bill</button>
+      <button type="button" class="btn btn-sm receipt-tab-btn" id="tab-receipt-chef" data-view="chef" style="font-size:11.5px; padding:4px 10px;">Chef Slip (KOT)</button>
+    </div>
+
+    <div class="modal-body" style="background:#CBD5E1; padding:16px; max-height:62vh; overflow-y:auto; display:flex; justify-content:center;">
       <div class="receipt-modal-content" id="receipt-printable-area">
         <!-- Filled by receipt.js -->
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" id="btn-receipt-dismiss">Done</button>
-      <button class="btn btn-primary" id="btn-receipt-print-action">
-        <svg><use href="#icon-print"/></svg>
-        Print Receipt
-      </button>
+
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <button class="btn btn-secondary btn-sm" id="btn-receipt-dismiss">Close</button>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-secondary btn-sm" id="btn-print-chef-only" title="Print Chef Kitchen Slip Only">
+          Chef Slip Only
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-receipt-print-action" style="display:flex; align-items:center; gap:6px;">
+          <svg style="width:14px; height:14px;"><use href="#icon-print"/></svg>
+          <span id="lbl-print-action">Print Both Bills</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
