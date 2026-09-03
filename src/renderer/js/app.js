@@ -9,9 +9,13 @@ const App = {
     this.setupShortcuts();
     this.setupSystemButtons();
     this.checkExcelStatus();
+    this.checkCloudStatus();
     
     // Auto sync check every 30s
-    setInterval(() => this.checkExcelStatus(), 30000);
+    setInterval(() => {
+      this.checkExcelStatus();
+      this.checkCloudStatus();
+    }, 30000);
   },
 
   setupNavigation() {
@@ -182,6 +186,34 @@ const App = {
       }
     } catch (e) {
       console.warn('Sync status check error:', e);
+    }
+  },
+
+  async checkCloudStatus() {
+    try {
+      if (!window.electronAPI || !window.electronAPI.getSupabaseStatus) return;
+      const res = await window.electronAPI.getSupabaseStatus();
+      const dot = document.getElementById('cloud-sync-dot');
+      const text = document.getElementById('cloud-sync-text');
+      const badge = document.getElementById('cloud-status-badge');
+
+      if (res && res.connected) {
+        if (dot) dot.style.background = '#10B981';
+        if (text) text.textContent = res.tablesReady ? 'Cloud Synced' : 'Cloud Setup Needed';
+        if (badge) {
+          badge.textContent = res.tablesReady ? 'Online' : 'Pending SQL';
+          badge.className = res.tablesReady ? 'badge badge-success' : 'badge badge-warning';
+        }
+      } else {
+        if (dot) dot.style.background = '#64748B';
+        if (text) text.textContent = 'Cloud Offline';
+        if (badge) {
+          badge.textContent = 'Offline';
+          badge.className = 'badge badge-neutral';
+        }
+      }
+    } catch (e) {
+      console.warn('Check cloud status notice:', e);
     }
   },
 

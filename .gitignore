@@ -4,5 +4,10 @@ data/
 data_test/
 *.db
 *.db-journal
+*.exe
+*.lnk
+*.xlsx
+src/config/supabaseConfig.json
 scripts/create_shortcut.vbs
 scripts/create_shortcut.ps1
+

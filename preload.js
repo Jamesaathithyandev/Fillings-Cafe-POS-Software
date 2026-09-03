@@ -43,9 +43,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getExcelStatus: () => ipcRenderer.invoke('excel:getStatus'),
   exportExcelDialog: () => ipcRenderer.invoke('excel:export'),
 
-  // Backup & Restore
+  // Cloud & Backup
   createBackup: () => ipcRenderer.invoke('backup:create'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
-  restoreBackup: (backupPath) => ipcRenderer.invoke('backup:restore', backupPath),
+  restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
+  getSupabaseStatus: () => ipcRenderer.invoke('supabase:getStatus'),
   selectAndRestoreBackup: () => ipcRenderer.invoke('backup:selectAndRestore')
 });

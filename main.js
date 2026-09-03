@@ -5,6 +5,7 @@ const dbManager = require('./src/database/db');
 const queries = require('./src/database/queries');
 const excelSync = require('./src/excel/excelSync');
 const backupManager = require('./src/backup/backupManager');
+const supabaseSync = require('./src/supabase/supabaseSync');
 
 let mainWindow = null;
 
@@ -49,10 +50,21 @@ app.whenReady().then(async () => {
       console.warn('Initial Excel sync warning:', err.message);
     });
 
-    // 3. Register IPC Handlers
+    // 3. Background Supabase Menu Sync
+    setTimeout(async () => {
+      try {
+        const cats = queries.getAllCategories();
+        const items = queries.getAllMenuItems();
+        await supabaseSync.syncMenu(cats, items);
+      } catch (e) {
+        console.warn('Supabase initial sync notice:', e.message);
+      }
+    }, 4000);
+
+    // 4. Register IPC Handlers
     registerIpcHandlers();
 
-    // 4. Create Main Window
+    // 5. Create Main Window
     createWindow();
   } catch (err) {
     console.error('Fatal initialization error:', err);
@@ -210,8 +222,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('customers:createOrUpdate', async (event, data) => {
     const customer = queries.createOrUpdateCustomer(data);
-    // Background Excel Sync
+    // Background Excel & Cloud Sync
     excelSync.syncExcelWorkbook().catch(err => console.warn(err));
+    supabaseSync.syncCustomer(customer).catch(err => console.warn(err));
     return customer;
   });
 
@@ -262,6 +275,10 @@ function registerIpcHandlers() {
     // Automatically trigger Excel sync in background
     excelSync.syncExcelWorkbook().catch(err => {
       console.warn('Post-order Excel sync warning:', err.message);
+    });
+    // Cloud sync to Supabase in background
+    supabaseSync.syncOrder(order, payload.items).catch(err => {
+      console.warn('Post-order Supabase sync notice:', err.message);
     });
     return order;
   });
@@ -353,5 +370,10 @@ function registerIpcHandlers() {
     }
 
     return backupManager.restoreBackup(filePaths[0]);
+  });
+
+  // Supabase Cloud Sync Status
+  ipcMain.handle('supabase:getStatus', async () => {
+    return supabaseSync.checkConnection();
   });
 }

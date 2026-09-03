@@ -1,0 +1,6 @@
+{
+  "supabaseUrl": "https://YOUR_PROJECT_REF.supabase.co",
+  "supabaseKey": "YOUR_SECRET_OR_SERVICE_ROLE_KEY",
+  "supabaseAnonKey": "YOUR_ANON_PUBLIC_KEY",
+  "enabled": true
+}
