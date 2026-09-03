@@ -408,4 +408,30 @@ function registerIpcHandlers() {
     }
     return res;
   });
+
+  // Expenses & Purchases
+  ipcMain.handle('expenses:add', async (event, data) => {
+    const expense = queries.addExpense(data);
+    excelSync.syncExcelWorkbook().catch(err => console.warn(err));
+    supabaseSync.syncExpense(expense).catch(err => console.warn(err));
+    return expense;
+  });
+
+  ipcMain.handle('expenses:getAll', async (event, filters) => {
+    return queries.getAllExpenses(filters);
+  });
+
+  ipcMain.handle('expenses:delete', async (event, id) => {
+    const res = queries.deleteExpense(id);
+    excelSync.syncExcelWorkbook().catch(err => console.warn(err));
+    return res;
+  });
+
+  ipcMain.handle('expenses:getSummary', async () => {
+    return queries.getExpenseSummary();
+  });
+
+  ipcMain.handle('expenses:getProfitSummary', async () => {
+    return queries.getProfitSummary();
+  });
 }

@@ -295,12 +295,58 @@ const SupabaseSync = {
         });
       }
 
+      // 4. Pull Expenses
+      const { data: cloudExpenses, error: expErr } = await supabase
+        .from('expenses')
+        .select('*');
+
+      if (!expErr && Array.isArray(cloudExpenses)) {
+        cloudExpenses.forEach(e => {
+          const exists = dbManager.queryOne(
+            "SELECT id FROM expenses WHERE expense_date = ? AND item_name = ? AND cost = ?",
+            [e.expense_date, e.item_name, e.cost]
+          );
+          if (!exists) {
+            dbManager.run(`
+              INSERT INTO expenses (
+                expense_date, item_name, category, quantity, cost, payment_mode, vendor, notes, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              e.expense_date, e.item_name, e.category, e.quantity || '', e.cost, e.payment_mode || 'Cash', e.vendor || '', e.notes || '', e.created_at || new Date().toISOString()
+            ]);
+          }
+        });
+      }
+
       dbManager.saveDatabase();
       console.log('Successfully pulled and merged cloud data into local SQLite');
       return { success: true };
     } catch (err) {
       console.warn('Pull from cloud error:', err.message);
       return { success: false, message: err.message };
+    }
+  },
+
+  /**
+   * Sync Expense to Supabase
+   */
+  async syncExpense(expense) {
+    if (!this.isReady()) return;
+    try {
+      const payload = {
+        expense_date: expense.expense_date,
+        item_name: expense.item_name,
+        category: expense.category || 'General',
+        quantity: expense.quantity || '',
+        cost: parseFloat(expense.cost) || 0,
+        payment_mode: expense.payment_mode || 'Cash',
+        vendor: expense.vendor || '',
+        notes: expense.notes || ''
+      };
+      await supabase.from('expenses').insert(payload);
+      console.log(`Synced expense ${expense.item_name} to Supabase`);
+    } catch (err) {
+      console.warn('Supabase expense sync notice (offline):', err.message);
     }
   },
 

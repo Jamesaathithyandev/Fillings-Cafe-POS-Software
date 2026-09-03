@@ -27,6 +27,20 @@ const DashboardController = {
       set('kpi-aov',             App.formatCurrency(summary.totals.averageOrderValue));
       set('kpi-total-orders-all',`Across ${summary.totals.orders} Total Orders`);
 
+      // Load profit & expenses if available
+      try {
+        const profit = await window.electronAPI.getProfitSummary();
+        if (profit && profit.today) {
+          const p = profit.today.profit;
+          const profitEl = document.getElementById('kpi-today-profit');
+          if (profitEl) {
+            profitEl.textContent = (p >= 0 ? '₹' : '-₹') + Math.abs(p).toFixed(2);
+            profitEl.style.color = p >= 0 ? '#10B981' : '#EF4444';
+          }
+          set('kpi-month-profit', `Month Profit: ${(profit.month.profit >= 0 ? '₹' : '-₹') + Math.abs(profit.month.profit).toFixed(2)}`);
+        }
+      } catch (err) {}
+
     } catch (e) {
       console.warn('Dashboard KPI load error:', e);
     }

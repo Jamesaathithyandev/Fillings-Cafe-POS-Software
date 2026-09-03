@@ -276,33 +276,77 @@ async function generateWorkbook() {
   applySheetFormatting(dailySheet, dailyCols);
 
   // ----------------------------------------------------
-  // SHEET 6: MONTHLY_SALES
+  // SHEET 6: MONTHLY_SUMMARY (Sales, Expenses & Profit)
   // ----------------------------------------------------
-  const monthlySheet = workbook.addWorksheet('MONTHLY_SALES', {
+  const monthlySheet = workbook.addWorksheet('MONTHLY_SUMMARY', {
     views: [{ state: 'frozen', ySplit: 1 }]
   });
   const monthlyCols = [
     { header: 'Month', key: 'month', width: 16, align: 'center' },
     { header: 'Number of Orders', key: 'number_of_orders', width: 18, align: 'right', numFmt: '#,##0' },
     { header: 'Total Sales (₹)', key: 'total_sales', width: 18, align: 'right', numFmt: '₹#,##0.00' },
+    { header: 'Total Expenses (₹)', key: 'total_expenses', width: 18, align: 'right', numFmt: '₹#,##0.00' },
+    { header: 'Net Profit (₹)', key: 'net_profit', width: 18, align: 'right', numFmt: '₹#,##0.00' },
     { header: 'Cash Sales (₹)', key: 'cash_sales', width: 16, align: 'right', numFmt: '₹#,##0.00' },
-    { header: 'UPI Sales (₹)', key: 'upi_sales', width: 16, align: 'right', numFmt: '₹#,##0.00' },
-    { header: 'Card Sales (₹)', key: 'card_sales', width: 16, align: 'right', numFmt: '₹#,##0.00' },
-    { header: 'Other Sales (₹)', key: 'other_sales', width: 16, align: 'right', numFmt: '₹#,##0.00' }
+    { header: 'UPI Sales (₹)', key: 'upi_sales', width: 16, align: 'right', numFmt: '₹#,##0.00' }
   ];
 
+  // Calculate monthly expenses
+  const monthExpMap = {};
+  if (Array.isArray(data.expenses)) {
+    data.expenses.forEach(e => {
+      const m = (e.expense_date || '').substring(0, 7);
+      monthExpMap[m] = (monthExpMap[m] || 0) + (parseFloat(e.cost) || 0);
+    });
+  }
+
   data.monthlySales.forEach((m) => {
+    const exp = monthExpMap[m.month] || 0;
+    const profit = (parseFloat(m.total_sales) || 0) - exp;
     monthlySheet.addRow({
       month: m.month,
       number_of_orders: m.number_of_orders,
       total_sales: m.total_sales,
+      total_expenses: exp,
+      net_profit: profit,
       cash_sales: m.cash_sales,
-      upi_sales: m.upi_sales,
-      card_sales: m.card_sales,
-      other_sales: m.other_sales
+      upi_sales: m.upi_sales
     });
   });
   applySheetFormatting(monthlySheet, monthlyCols);
+
+  // ----------------------------------------------------
+  // SHEET 7: PURCHASES_EXPENSES
+  // ----------------------------------------------------
+  const expenseSheet = workbook.addWorksheet('PURCHASES_EXPENSES', {
+    views: [{ state: 'frozen', ySplit: 1 }]
+  });
+  const expenseCols = [
+    { header: 'Date', key: 'expense_date', width: 15, align: 'center' },
+    { header: 'Item Name', key: 'item_name', width: 26 },
+    { header: 'Category', key: 'category', width: 18 },
+    { header: 'Quantity', key: 'quantity', width: 15, align: 'center' },
+    { header: 'Cost (₹)', key: 'cost', width: 16, align: 'right', numFmt: '₹#,##0.00' },
+    { header: 'Payment Mode', key: 'payment_mode', width: 16, align: 'center' },
+    { header: 'Vendor / Shop', key: 'vendor', width: 22 },
+    { header: 'Notes', key: 'notes', width: 30 }
+  ];
+
+  if (Array.isArray(data.expenses)) {
+    data.expenses.forEach((e) => {
+      expenseSheet.addRow({
+        expense_date: e.expense_date,
+        item_name: e.item_name,
+        category: e.category,
+        quantity: e.quantity || '-',
+        cost: parseFloat(e.cost) || 0,
+        payment_mode: e.payment_mode,
+        vendor: e.vendor || '-',
+        notes: e.notes || ''
+      });
+    });
+  }
+  applySheetFormatting(expenseSheet, expenseCols);
 
   return workbook;
 }

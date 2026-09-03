@@ -1182,3 +1182,22 @@ select.form-control { cursor: pointer; }
   color: var(--text-muted);
 }
 
+.btn-sidebar-logout {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #F87171;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.btn-sidebar-logout:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #EF4444;
+  color: #EF4444;
+  transform: translateY(-1px);
+}
+

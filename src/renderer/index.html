@@ -78,7 +78,12 @@
         <span>Menu Manager</span>
       </div>
 
-      <div class="nav-section-label">Analytics</div>
+      <div class="nav-section-label">Finance &amp; Analytics</div>
+
+      <div class="nav-item" id="nav-expenses" data-view="expenses">
+        <svg class="nav-icon"><use href="#icon-receipt"/></svg>
+        <span>Purchase List</span>
+      </div>
 
       <div class="nav-item" id="nav-reports" data-view="reports">
         <svg class="nav-icon"><use href="#icon-reports"/></svg>
@@ -109,9 +114,9 @@
         </div>
         <button class="btn-sync-now" id="btn-quick-sync" title="Sync to Business_Data.xlsx">Sync Now</button>
       </div>
-      <div class="sidebar-meta">
+      <div class="sidebar-meta" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Cheran Ma Nagar, CBE</span>
-        <span id="app-ver-tag">v2.1</span>
+        <button class="btn-sidebar-logout" id="btn-sidebar-logout" title="Sign out of POS">Logout</button>
       </div>
     </div>
 
@@ -134,7 +139,7 @@
           <svg><use href="#icon-clock"/></svg>
           Loading...
         </div>
-        <button class="topbar-icon-btn" id="btn-cloud-pull" title="Pull latest cloud orders & customers from Supabase">
+        <button class="topbar-icon-btn" id="btn-cloud-pull" title="Pull latest cloud orders &amp; expenses from Supabase">
           <svg><use href="#icon-sync"/></svg> Cloud Pull
         </button>
         <button class="topbar-icon-btn" id="btn-open-excel" title="Open Business_Data.xlsx">
@@ -142,9 +147,6 @@
         </button>
         <button class="topbar-icon-btn" id="btn-open-data-dir" title="Open Application Data Folder">
           <svg><use href="#icon-folder"/></svg> Data Folder
-        </button>
-        <button class="topbar-icon-btn btn-lock" id="btn-lock-screen" title="Lock POS Software">
-          <svg><use href="#icon-lock"/></svg> Lock
         </button>
       </div>
     </header>
@@ -650,6 +652,209 @@
       </section>
 
       <!-- ======================================================
+           5b. PURCHASE LIST & EXPENSES VIEW
+           ====================================================== -->
+      <section class="view-section" id="view-expenses">
+        <div class="dashboard-wrap">
+
+          <!-- Hero -->
+          <div class="dashboard-hero">
+            <div class="hero-left">
+              <div class="hero-greeting">Finance &amp; Operations</div>
+              <div class="hero-title">Purchase List &amp; Daily Expenses</div>
+              <div class="hero-subtitle">Record cafe ingredient purchases, operational costs, and monitor net daily &amp; monthly profits.</div>
+            </div>
+            <div class="hero-actions">
+              <button class="btn btn-primary" id="btn-quick-sync-expenses-excel">
+                <svg><use href="#icon-excel"/></svg>
+                Sync to Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- Financial Profit & Expense KPI Grid -->
+          <div class="kpi-grid">
+
+            <div class="kpi-card danger-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Today's Purchases</div>
+                <div class="kpi-icon-wrap red">
+                  <svg><use href="#icon-receipt"/></svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="exp-kpi-today-cost">₹0.00</div>
+              <div class="kpi-sub" id="exp-kpi-today-count">0 Purchases Today</div>
+            </div>
+
+            <div class="kpi-card orange-card">
+              <div class="kpi-top">
+                <div class="kpi-label">This Month Purchases</div>
+                <div class="kpi-icon-wrap orange">
+                  <svg><use href="#icon-reports"/></svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="exp-kpi-month-cost">₹0.00</div>
+              <div class="kpi-sub">Total Spent This Month</div>
+            </div>
+
+            <div class="kpi-card success-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Today's Net Profit</div>
+                <div class="kpi-icon-wrap green">
+                  <svg><use href="#icon-check"/></svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="exp-kpi-today-profit">₹0.00</div>
+              <div class="kpi-sub" id="exp-kpi-today-margin">Sales - Expenses</div>
+            </div>
+
+            <div class="kpi-card primary">
+              <div class="kpi-top">
+                <div class="kpi-label">Month Net Profit</div>
+                <div class="kpi-icon-wrap amber">
+                  <svg><use href="#icon-rupee"/></svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="exp-kpi-month-profit">₹0.00</div>
+              <div class="kpi-sub" id="exp-kpi-month-margin">Net Profit This Month</div>
+            </div>
+
+          </div>
+
+          <!-- 2 Columns: Add Expense Form (Left) & Expense History (Right) -->
+          <div class="dash-grid-2" style="grid-template-columns: 380px 1fr; align-items: start;">
+
+            <!-- Add Expense Form Card -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg><use href="#icon-plus"/></svg>
+                  Record New Purchase / Expense
+                </div>
+              </div>
+              <div style="padding: 20px;">
+                <form id="form-add-expense" style="display: flex; flex-direction: column; gap: 14px;">
+
+                  <div class="form-group">
+                    <label class="form-label" for="exp-input-name">Item / Expense Name *</label>
+                    <input type="text" id="exp-input-name" class="form-input" placeholder="e.g. Chicken 5kg, Milk 10L, Oil" required />
+                  </div>
+
+                  <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-cost">Cost / Amount (₹) *</label>
+                      <input type="number" id="exp-input-cost" class="form-input" placeholder="0.00" step="0.01" min="0" required />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-qty">Quantity / Unit</label>
+                      <input type="text" id="exp-input-qty" class="form-input" placeholder="e.g. 5 kg, 10 L" />
+                    </div>
+                  </div>
+
+                  <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-cat">Category</label>
+                      <select id="exp-input-cat" class="form-input">
+                        <option value="Meat/Poultry">🍗 Meat / Poultry</option>
+                        <option value="Dairy">🥛 Dairy / Milk</option>
+                        <option value="Vegetables/Produce">🥬 Vegetables &amp; Produce</option>
+                        <option value="Groceries/Dry Stock">🌾 Groceries &amp; Spices</option>
+                        <option value="Bakery/Buns">🍞 Bakery &amp; Buns</option>
+                        <option value="Packaging">📦 Packaging Material</option>
+                        <option value="Beverages/Syrups">🥤 Beverages &amp; Syrups</option>
+                        <option value="Utilities/Bills">💡 Utilities &amp; Gas</option>
+                        <option value="Maintenance">🔧 Maintenance &amp; Cleaning</option>
+                        <option value="General" selected>📌 General Expense</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-payment">Payment Mode</label>
+                      <select id="exp-input-payment" class="form-input">
+                        <option value="Cash" selected>💵 Cash</option>
+                        <option value="UPI">📱 UPI / GPay</option>
+                        <option value="Card">💳 Card</option>
+                        <option value="Bank Transfer">🏦 Bank Transfer</option>
+                        <option value="Credit">⏳ Credit (To Pay Later)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-date">Purchase Date</label>
+                      <input type="date" id="exp-input-date" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="exp-input-vendor">Vendor / Supplier</label>
+                      <input type="text" id="exp-input-vendor" class="form-input" placeholder="e.g. Local Shop" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="exp-input-notes">Notes / Bill No.</label>
+                    <input type="text" id="exp-input-notes" class="form-input" placeholder="e.g. Bill #4092, Paid cash" />
+                  </div>
+
+                  <button type="submit" class="btn btn-primary" id="btn-save-expense" style="margin-top: 6px; padding: 12px;">
+                    <svg><use href="#icon-save"/></svg>
+                    Save Purchase Expense
+                  </button>
+
+                </form>
+              </div>
+            </div>
+
+            <!-- Expense History Card -->
+            <div class="card">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div class="card-title">
+                  <svg><use href="#icon-receipt"/></svg>
+                  Purchase &amp; Expense History
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="text" id="exp-filter-search" class="form-input form-input-sm" placeholder="Search purchase..." style="width: 170px;" />
+                  <select id="exp-filter-cat" class="form-input form-input-sm" style="width: 140px;">
+                    <option value="ALL">All Categories</option>
+                    <option value="Meat/Poultry">Meat / Poultry</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Vegetables/Produce">Vegetables</option>
+                    <option value="Groceries/Dry Stock">Groceries</option>
+                    <option value="Bakery/Buns">Bakery</option>
+                    <option value="Packaging">Packaging</option>
+                    <option value="Utilities/Bills">Utilities</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table class="data-table" id="expenses-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Item Name</th>
+                      <th>Category</th>
+                      <th>Qty</th>
+                      <th>Cost (₹)</th>
+                      <th>Payment</th>
+                      <th>Vendor</th>
+                      <th style="width: 70px; text-align: center;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expenses-table-body">
+                    <!-- Populated by expenses.js -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ======================================================
            6. BACKUP & EXCEL SYNC VIEW
            ====================================================== -->
       <section class="view-section" id="view-backup">
@@ -1014,6 +1219,7 @@
 <script src="js/customers.js"></script>
 <script src="js/menu.js"></script>
 <script src="js/reports.js"></script>
+<script src="js/expenses.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/receipt.js"></script>
 

@@ -167,17 +167,16 @@ const AuthManager = {
       }
     }
 
-    // 3. Save Session
+    // 3. Save Session (Persists indefinitely until user explicitly logs out)
     try {
-      const sessionDuration = rememberMe ? (30 * 24 * 60 * 60 * 1000) : (12 * 60 * 60 * 1000);
+      const sessionDuration = 365 * 24 * 60 * 60 * 1000; // 1 year
       const sessionData = {
         token: crypto.randomBytes(32).toString('hex'),
         user: matchedUser,
-        rememberMe,
+        rememberMe: true,
         createdAt: Date.now(),
         expiresAt: Date.now() + sessionDuration
       };
-
       fs.writeFileSync(getSessionFilePath(), JSON.stringify(sessionData, null, 2), 'utf8');
       return { success: true, user: matchedUser };
     } catch (e) {

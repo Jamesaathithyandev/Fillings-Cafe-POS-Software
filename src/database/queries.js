@@ -554,6 +554,7 @@ function getFullExcelDataset() {
   const menu = db.queryAll("SELECT * FROM menu_items ORDER BY category_name ASC, name ASC");
   const dailySales = getDailySales(365);
   const monthlySales = getMonthlySales();
+  const expenses = getAllExpenses();
 
   return {
     customers,
@@ -561,7 +562,118 @@ function getFullExcelDataset() {
     orderItems,
     menu,
     dailySales,
-    monthlySales
+    monthlySales,
+    expenses
+  };
+}
+
+// ==========================================
+// 6. EXPENSES & PURCHASES
+// ==========================================
+
+function addExpense(data) {
+  const date = data.expense_date || new Date().toISOString().split('T')[0];
+  const now = new Date().toISOString();
+  const res = db.run(`
+    INSERT INTO expenses (expense_date, item_name, category, quantity, cost, payment_mode, vendor, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    date,
+    data.item_name,
+    data.category || 'General',
+    data.quantity || '',
+    parseFloat(data.cost) || 0,
+    data.payment_mode || 'Cash',
+    data.vendor || '',
+    data.notes || '',
+    now
+  ]);
+  const newId = res.lastInsertRowid || db.queryOne("SELECT MAX(id) as id FROM expenses")?.id;
+  return getExpenseById(newId);
+}
+
+function getExpenseById(id) {
+  return db.queryOne("SELECT * FROM expenses WHERE id = ?", [id]);
+}
+
+function getAllExpenses(filters = {}) {
+  let sql = "SELECT * FROM expenses WHERE 1=1";
+  const params = [];
+  if (filters.date) {
+    sql += " AND expense_date = ?";
+    params.push(filters.date);
+  }
+  if (filters.month) {
+    sql += " AND expense_date LIKE ?";
+    params.push(`${filters.month}%`);
+  }
+  if (filters.category && filters.category !== 'ALL') {
+    sql += " AND category = ?";
+    params.push(filters.category);
+  }
+  if (filters.search) {
+    sql += " AND (item_name LIKE ? OR vendor LIKE ?)";
+    params.push(`%${filters.search}%`, `%${filters.search}%`);
+  }
+  sql += " ORDER BY expense_date DESC, id DESC";
+  return db.queryAll(sql, params);
+}
+
+function deleteExpense(id) {
+  db.run("DELETE FROM expenses WHERE id = ?", [id]);
+  db.saveDatabase();
+  return { success: true, id };
+}
+
+function getExpenseSummary() {
+  const today = new Date().toISOString().split('T')[0];
+  const month = today.substring(0, 7);
+
+  const todayExp = db.queryOne("SELECT COALESCE(SUM(cost), 0) as total FROM expenses WHERE expense_date = ?", [today]);
+  const monthExp = db.queryOne("SELECT COALESCE(SUM(cost), 0) as total FROM expenses WHERE expense_date LIKE ?", [`${month}%`]);
+  const totalExp = db.queryOne("SELECT COALESCE(SUM(cost), 0) as total, COUNT(*) as count FROM expenses");
+
+  return {
+    todayTotal: todayExp ? todayExp.total : 0,
+    monthTotal: monthExp ? monthExp.total : 0,
+    allTimeTotal: totalExp ? totalExp.total : 0,
+    totalCount: totalExp ? totalExp.count : 0
+  };
+}
+
+function getProfitSummary() {
+  const today = new Date().toISOString().split('T')[0];
+  const month = today.substring(0, 7);
+
+  // Sales
+  const todaySalesRes = db.queryOne("SELECT COALESCE(SUM(final_total), 0) as total FROM orders WHERE order_date = ? AND status = 'COMPLETED'", [today]);
+  const monthSalesRes = db.queryOne("SELECT COALESCE(SUM(final_total), 0) as total FROM orders WHERE order_date LIKE ? AND status = 'COMPLETED'", [`${month}%`]);
+
+  // Expenses
+  const todayExpRes = db.queryOne("SELECT COALESCE(SUM(cost), 0) as total FROM expenses WHERE expense_date = ?", [today]);
+  const monthExpRes = db.queryOne("SELECT COALESCE(SUM(cost), 0) as total FROM expenses WHERE expense_date LIKE ?", [`${month}%`]);
+
+  const todaySales = todaySalesRes ? todaySalesRes.total : 0;
+  const todayExp = todayExpRes ? todayExpRes.total : 0;
+  const todayProfit = todaySales - todayExp;
+
+  const monthSales = monthSalesRes ? monthSalesRes.total : 0;
+  const monthExp = monthExpRes ? monthExpRes.total : 0;
+  const monthProfit = monthSales - monthExp;
+
+  return {
+    today: {
+      sales: todaySales,
+      expense: todayExp,
+      profit: todayProfit,
+      margin: todaySales > 0 ? Math.round((todayProfit / todaySales) * 1000) / 10 : 0
+    },
+    month: {
+      sales: monthSales,
+      expense: monthExp,
+      profit: monthProfit,
+      margin: monthSales > 0 ? Math.round((monthProfit / monthSales) * 1000) / 10 : 0
+    }
   };
 }
 
@@ -597,6 +709,14 @@ module.exports = {
   getDateRangeReport,
   getTopSellingItems,
   
+  // Expenses & Profit
+  addExpense,
+  getExpenseById,
+  getAllExpenses,
+  deleteExpense,
+  getExpenseSummary,
+  getProfitSummary,
+
   // Excel Export
   getFullExcelDataset
 };

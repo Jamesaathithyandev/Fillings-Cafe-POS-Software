@@ -93,3 +93,21 @@ CREATE TABLE IF NOT EXISTS app_users (
 );
 
 ALTER TABLE app_users DISABLE ROW LEVEL SECURITY;
+
+-- 7. Expenses & Purchases Table
+CREATE TABLE IF NOT EXISTS expenses (
+  id SERIAL PRIMARY KEY,
+  expense_date DATE NOT NULL,
+  item_name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'General',
+  quantity TEXT DEFAULT '',
+  cost NUMERIC(10, 2) NOT NULL,
+  payment_mode TEXT NOT NULL DEFAULT 'Cash',
+  vendor TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);

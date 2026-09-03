@@ -78,6 +78,24 @@ async function initDatabase(customPath = null) {
   // Auto-migrate schema for existing databases
   try { db.run("ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'Dine-In'"); } catch (e) {}
   try { db.run("ALTER TABLE orders ADD COLUMN packaging_charge REAL NOT NULL DEFAULT 0"); } catch (e) {}
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        expense_date TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'General',
+        quantity TEXT DEFAULT '',
+        cost REAL NOT NULL,
+        payment_mode TEXT NOT NULL DEFAULT 'Cash',
+        vendor TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    `);
+    db.run("CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category)");
+  } catch (e) {}
   saveDatabase();
 
   // Pre-seed initial menu data if empty

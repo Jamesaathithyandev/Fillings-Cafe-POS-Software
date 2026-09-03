@@ -54,5 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   login: (username, password, rememberMe) => ipcRenderer.invoke('auth:login', username, password, rememberMe),
   logout: () => ipcRenderer.invoke('auth:logout'),
   checkSession: () => ipcRenderer.invoke('auth:checkSession'),
-  pullFromCloud: () => ipcRenderer.invoke('cloud:pullSync')
+  pullFromCloud: () => ipcRenderer.invoke('cloud:pullSync'),
+
+  // Expenses & Purchases
+  addExpense: (data) => ipcRenderer.invoke('expenses:add', data),
+  getAllExpenses: (filters) => ipcRenderer.invoke('expenses:getAll', filters),
+  deleteExpense: (id) => ipcRenderer.invoke('expenses:delete', id),
+  getExpenseSummary: () => ipcRenderer.invoke('expenses:getSummary'),
+  getProfitSummary: () => ipcRenderer.invoke('expenses:getProfitSummary')
 });

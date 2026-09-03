@@ -72,6 +72,7 @@ const App = {
       pos: 'Add Order',
       customers: 'Customer Database',
       menu: 'Menu Manager',
+      expenses: 'Purchase List & Expenses',
       reports: 'Sales & Reports',
       backup: 'Excel & Backup'
     };
@@ -82,6 +83,10 @@ const App = {
     if (viewName === 'pos' && window.POSController) window.POSController.onEnter();
     if (viewName === 'customers' && window.CustomersController) window.CustomersController.refresh();
     if (viewName === 'menu' && window.MenuController) window.MenuController.refresh();
+    if (viewName === 'expenses' && window.ExpensesController) {
+      window.ExpensesController.loadExpenses();
+      window.ExpensesController.loadSummaries();
+    }
     if (viewName === 'reports' && window.ReportsController) window.ReportsController.refresh();
     if (viewName === 'backup' && window.BackupController) window.BackupController.refresh();
   },
@@ -142,7 +147,7 @@ const App = {
     const btnTogglePwd = document.getElementById('btn-toggle-pwd');
     const errorMsg = document.getElementById('login-error-msg');
     const btnSubmit = document.getElementById('btn-login-submit');
-    const btnLock = document.getElementById('btn-lock-screen');
+    const btnLogout = document.getElementById('btn-sidebar-logout');
     const btnCloudPull = document.getElementById('btn-cloud-pull');
 
     // Toggle password visibility
@@ -163,7 +168,7 @@ const App = {
 
         if (!username || !password) {
           if (errorMsg) {
-            errorMsg.textContent = 'Please enter both username and password.';
+            errorMsg.textContent = 'Please enter username and password.';
             errorMsg.style.display = 'block';
           }
           return;
@@ -206,12 +211,14 @@ const App = {
       });
     }
 
-    // Lock screen button
-    if (btnLock) {
-      btnLock.addEventListener('click', async () => {
-        await window.electronAPI.logout();
-        this.lockApp();
-        App.showToast('POS locked successfully.', 'info');
+    // Sidebar Logout button
+    if (btnLogout) {
+      btnLogout.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to sign out of the software?')) {
+          await window.electronAPI.logout();
+          this.lockApp();
+          App.showToast('Logged out successfully.', 'info');
+        }
       });
     }
 
