@@ -107,32 +107,46 @@ const MenuController = {
 
     tbody.innerHTML = list.map(item => `
       <tr>
-        <td><strong style="color:var(--text-amber);">${item.item_code}</strong></td>
-        <td><strong>${item.name}</strong></td>
-        <td><span style="background:var(--bg-input); padding:3px 8px; border-radius:4px; font-size:11px;">${item.category_name}</span></td>
+        <td><span class="menu-item-code-cell">${item.item_code}</span></td>
+        <td><span class="menu-item-name-cell">${item.name}</span></td>
+        <td><span class="badge badge-info" style="font-size:10px;">${item.category_name}</span></td>
         <td>
-          <div class="price-edit-cell">
-            <span>₹</span>
-            <input type="number" class="price-input-quick" data-id="${item.id}" value="${item.price}" step="0.01" min="0">
+          <div class="price-edit-cell" style="display:flex; align-items:center; gap:4px;">
+            <span style="color:var(--text-muted); font-size:11px;">&#8377;</span>
+            <input type="number" class="price-input-quick" data-id="${item.id}" value="${item.price}" step="0.01" min="0"
+              style="background:var(--bg-input); border:1px solid var(--border-2); color:var(--text-accent); font-family:var(--font-mono); font-weight:700; font-size:13px; padding:4px 8px; border-radius:var(--r-xs); width:80px; outline:none;">
           </div>
         </td>
-        <td style="color:var(--text-muted); font-size:12px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-          ${item.description || '-'}
+        <td style="color:var(--text-muted); font-size:12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.description || '—'}</td>
+        <td>
+          <div class="active-toggle-wrap">
+            <label class="switch">
+              <input type="checkbox" class="toggle-status" data-id="${item.id}" ${item.is_active === 1 ? 'checked' : ''}>
+              <span class="slider"></span>
+            </label>
+            <span style="font-size:11px;">${item.is_active === 1 ? 'Active' : 'Hidden'}</span>
+          </div>
         </td>
         <td>
-          <label class="switch">
-            <input type="checkbox" class="toggle-status" data-id="${item.id}" ${item.is_active === 1 ? 'checked' : ''}>
-            <span class="slider"></span>
-          </label>
-        </td>
-        <td>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-secondary btn-sm btn-edit-item" data-id="${item.id}">Edit</button>
-            <button class="btn btn-danger btn-sm btn-del-item" data-id="${item.id}">Delete</button>
+          <div class="table-action-btns">
+            <button class="tbl-btn edit btn-edit-item" data-id="${item.id}" title="Edit item">
+              <svg><use href="#icon-edit"/></svg>
+            </button>
+            <button class="tbl-btn del btn-del-item" data-id="${item.id}" title="Delete item">
+              <svg><use href="#icon-trash"/></svg>
+            </button>
           </div>
         </td>
       </tr>
     `).join('');
+
+    // Update Stats Bar
+    const totalEl  = document.getElementById('menu-stat-total');
+    const activeEl = document.getElementById('menu-stat-active');
+    const catsEl   = document.getElementById('menu-stat-cats');
+    if (totalEl)  totalEl.textContent  = this.menuItems.length;
+    if (activeEl) activeEl.textContent = this.menuItems.filter(m => m.is_active === 1).length;
+    if (catsEl)   catsEl.textContent   = this.categories.length;
 
     // Inline Quick Price Change Handler
     tbody.querySelectorAll('.price-input-quick').forEach(input => {

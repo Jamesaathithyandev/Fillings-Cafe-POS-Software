@@ -1,4 +1,4 @@
-// Sree Sai Fillings Cafe - Main Dashboard Controller
+// Sree Sai Fillings Cafe — Dashboard Controller v2.0
 
 const DashboardController = {
   init() {
@@ -16,24 +16,16 @@ const DashboardController = {
   async loadSummaryKPIs() {
     try {
       const summary = await window.electronAPI.getDashboardSummary();
-      
-      const todaySalesEl = document.getElementById('kpi-today-sales');
-      const todayOrdersEl = document.getElementById('kpi-today-orders');
-      const monthSalesEl = document.getElementById('kpi-month-sales');
-      const monthOrdersEl = document.getElementById('kpi-month-orders');
-      const totalCustEl = document.getElementById('kpi-total-customers');
-      const aovEl = document.getElementById('kpi-aov');
-      const totalOrdersAllEl = document.getElementById('kpi-total-orders-all');
 
-      if (todaySalesEl) todaySalesEl.textContent = App.formatCurrency(summary.today.sales);
-      if (todayOrdersEl) todayOrdersEl.textContent = `${summary.today.orders} Orders Today`;
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-      if (monthSalesEl) monthSalesEl.textContent = App.formatCurrency(summary.month.sales);
-      if (monthOrdersEl) monthOrdersEl.textContent = `${summary.month.orders} Orders This Month`;
-
-      if (totalCustEl) totalCustEl.textContent = (summary.totals.customers || 0).toLocaleString();
-      if (aovEl) aovEl.textContent = App.formatCurrency(summary.totals.averageOrderValue);
-      if (totalOrdersAllEl) totalOrdersAllEl.textContent = `Across ${summary.totals.orders} Total Orders`;
+      set('kpi-today-sales',     App.formatCurrency(summary.today.sales));
+      set('kpi-today-orders',    `${summary.today.orders} Orders Today`);
+      set('kpi-month-sales',     App.formatCurrency(summary.month.sales));
+      set('kpi-month-orders',    `${summary.month.orders} Orders This Month`);
+      set('kpi-total-customers', (summary.totals.customers || 0).toLocaleString());
+      set('kpi-aov',             App.formatCurrency(summary.totals.averageOrderValue));
+      set('kpi-total-orders-all',`Across ${summary.totals.orders} Total Orders`);
 
     } catch (e) {
       console.warn('Dashboard KPI load error:', e);
@@ -41,38 +33,53 @@ const DashboardController = {
   },
 
   async loadRecentOrders() {
-    const tbody = document.getElementById('dashboard-recent-orders-body');
-    if (!tbody) return;
+    const list = document.getElementById('dashboard-recent-orders-body');
+    if (!list) return;
 
     try {
       const orders = await window.electronAPI.getRecentOrders(10);
+
       if (orders.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">
-              No orders placed yet. Click "+ ADD ORDER" to make your first bill!
-            </td>
-          </tr>
+        list.innerHTML = `
+          <div class="cart-empty" style="padding:32px 20px;">
+            <svg viewBox="0 0 120 100"><use href="#illus-no-data"/></svg>
+            <div class="cart-empty-title">No orders yet</div>
+            <div class="cart-empty-sub">Click "Add Order" to place your first bill!</div>
+          </div>
         `;
         return;
       }
 
-      tbody.innerHTML = orders.map(o => `
-        <tr>
-          <td><strong style="color:var(--text-amber);">${o.order_number}</strong></td>
-          <td><strong>${o.customer_name}</strong></td>
-          <td>${o.customer_phone}</td>
-          <td>${o.order_date} ${o.order_time}</td>
-          <td><strong style="color:var(--primary);">${App.formatCurrency(o.final_total)}</strong></td>
-          <td><span style="background:var(--bg-input); padding:3px 8px; border-radius:4px; font-size:11px;">${o.payment_method}</span></td>
-          <td><span class="status-badge ${o.status.toLowerCase()}">${o.status}</span></td>
-          <td>
-            <button class="btn btn-secondary btn-sm btn-view-order-dash" data-ord="${o.order_number}">View Bill</button>
-          </td>
-        </tr>
-      `).join('');
+      list.innerHTML = orders.map(o => {
+        const initials = (o.customer_name || '?').charAt(0).toUpperCase();
+        const statusClass = o.status === 'Completed' ? 'badge-success' : o.status === 'Cancelled' ? 'badge-danger' : 'badge-warning';
+        const payBadge = { Cash: 'badge-success', UPI: 'badge-info', Card: 'badge-info', Other: 'badge-warning' }[o.payment_method] || 'badge-info';
 
-      tbody.querySelectorAll('.btn-view-order-dash').forEach(btn => {
+        return `
+          <div class="order-row">
+            <div class="order-row-num">${o.order_number}</div>
+            <div class="order-row-cust">
+              <div class="order-row-name">${o.customer_name || 'Walk-in'}</div>
+              <div class="order-row-phone">${o.customer_phone || '—'}</div>
+            </div>
+            <div class="order-row-amount">${App.formatCurrency(o.final_total)}</div>
+            <div class="order-row-meta">
+              <span class="badge ${payBadge}" style="font-size:10px;">${o.payment_method}</span>
+              <div class="order-row-time">${o.order_date} ${o.order_time ? o.order_time.slice(0,5) : ''}</div>
+            </div>
+            <div class="order-row-actions">
+              <button class="row-action-btn btn-view-order-dash" title="View Bill" data-ord="${o.order_number}">
+                <svg><use href="#icon-view"/></svg>
+              </button>
+              <button class="row-action-btn btn-print-order-dash" title="Re-Print" data-ord="${o.order_number}">
+                <svg><use href="#icon-print"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      list.querySelectorAll('.btn-view-order-dash, .btn-print-order-dash').forEach(btn => {
         btn.addEventListener('click', async () => {
           const ordNum = btn.getAttribute('data-ord');
           const details = await window.electronAPI.getOrderDetails(ordNum);
@@ -92,25 +99,32 @@ const DashboardController = {
     if (!list) return;
 
     try {
-      const items = await window.electronAPI.getTopSellingItems(6);
+      const items = await window.electronAPI.getTopSellingItems(7);
+
       if (items.length === 0) {
         list.innerHTML = `
-          <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">
-            Top selling items will appear here as orders are saved.
+          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:12.5px;">
+            Top selling items appear here as orders are saved.
           </div>
         `;
         return;
       }
 
+      const maxQty = items[0].total_quantity || 1;
+
+      const rankClasses = ['gold', 'silver', 'bronze'];
+
       list.innerHTML = items.map((item, idx) => `
         <div class="top-item-row">
-          <span class="top-item-rank">#${idx + 1}</span>
-          <div class="top-item-name">
-            <div>${item.item_name}</div>
-            <div style="font-size:10px; color:var(--text-muted); font-weight:normal;">${item.category_name}</div>
+          <div class="top-rank ${rankClasses[idx] || ''}">${idx + 1}</div>
+          <div class="top-item-info">
+            <div class="top-item-name">${item.item_name}</div>
+            <div class="top-item-cat">${item.category_name}</div>
           </div>
-          <span class="top-item-qty">${item.total_quantity} sold</span>
-          <span class="top-item-rev">${App.formatCurrency(item.total_revenue)}</span>
+          <div class="top-item-bar-wrap">
+            <div class="top-item-bar" style="width:${Math.round((item.total_quantity / maxQty) * 100)}%"></div>
+          </div>
+          <div class="top-item-count">${item.total_quantity}</div>
         </div>
       `).join('');
 

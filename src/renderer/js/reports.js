@@ -35,7 +35,7 @@ const ReportsController = {
   },
 
   bindEvents() {
-    const tabs = document.querySelectorAll('.report-tab-btn');
+    const tabs = document.querySelectorAll('.report-tab');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));

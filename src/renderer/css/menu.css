@@ -1,91 +1,141 @@
-/* Sree Sai Fillings Cafe - Menu Management CSS */
+/* ================================================================
+   Menu Management View — Premium v2.0
+   ================================================================ */
 
-.menu-mgmt-container {
-  padding: 24px 30px;
+.menu-mgmt-wrap {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  overflow-y: auto;
   height: 100%;
+  overflow: hidden;
 }
 
-.menu-mgmt-header {
+/* ----------------------------------------------------------------
+   Toolbar
+   ---------------------------------------------------------------- */
+.menu-mgmt-toolbar {
+  padding: 18px 24px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 16px;
+  border-bottom: 1px solid var(--border-1);
+  flex-shrink: 0;
 }
 
-.menu-toolbar {
+.menu-mgmt-toolbar-left {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 10px;
 }
 
-/* Status Toggle Switch */
-.switch {
+.menu-search-wrap {
   position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 22px;
+  width: 280px;
 }
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
+.menu-search-wrap svg {
   position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  transition: 0.2s;
-  border-radius: 22px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--text-muted);
-  transition: 0.2s;
+/* ----------------------------------------------------------------
+   Table Body Enhancements
+   ---------------------------------------------------------------- */
+
+/* Category color dot in table */
+.cat-color-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  background: var(--primary);
+  display: inline-block;
+  margin-right: 7px;
+  flex-shrink: 0;
 }
 
-input:checked + .slider {
-  background-color: var(--success);
+.menu-item-name-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.menu-item-code-cell {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.menu-price-cell {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-accent);
 }
 
-input:checked + .slider:before {
-  transform: translateX(18px);
-  background-color: #FFF;
+/* Active toggle in table */
+.active-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
-.price-edit-cell {
+/* Action button pair */
+.table-action-btns {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.price-input-quick {
-  width: 70px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 4px 6px;
-  color: var(--text-amber);
-  font-family: var(--font-heading);
+.tbl-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-1);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.tbl-btn svg { width: 13px; height: 13px; }
+.tbl-btn.edit:hover { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.tbl-btn.del:hover  { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+
+/* ----------------------------------------------------------------
+   Menu Stats Bar
+   ---------------------------------------------------------------- */
+.menu-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border-1);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.menu-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.menu-stat-val {
   font-weight: 700;
-  font-size: 13px;
-  text-align: right;
-  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.menu-mgmt-table-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 0 24px 24px;
+  margin-top: 16px;
 }

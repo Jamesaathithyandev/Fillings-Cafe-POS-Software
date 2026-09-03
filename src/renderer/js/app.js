@@ -59,12 +59,12 @@ const App = {
     // Update Heading
     const heading = document.getElementById('page-heading');
     const titles = {
-      dashboard: 'Main Dashboard',
-      pos: 'Add Order / Billing POS',
-      customers: 'Customer Database & History',
-      menu: 'Menu Management',
-      reports: 'Sales & Business Reports',
-      backup: 'Excel Synchronization & Backups'
+      dashboard: 'Dashboard',
+      pos: 'Add Order',
+      customers: 'Customer Database',
+      menu: 'Menu Manager',
+      reports: 'Sales & Reports',
+      backup: 'Excel & Backup'
     };
     if (heading) heading.textContent = titles[viewName] || 'Sree Sai Fillings Cafe';
 
@@ -79,11 +79,16 @@ const App = {
 
   setupClock() {
     const clockEl = document.getElementById('live-clock');
+    const greetEl = document.getElementById('hero-greeting');
     const update = () => {
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      if (clockEl) clockEl.innerHTML = `🕒 ${dateStr} • ${timeStr}`;
+      if (clockEl) clockEl.innerHTML = `<svg><use href="#icon-clock"/></svg>${dateStr} &bull; ${timeStr}`;
+      if (greetEl) {
+        const h = now.getHours();
+        greetEl.textContent = h < 12 ? 'Good Morning ☀️' : h < 17 ? 'Good Afternoon 🌤️' : 'Good Evening 🌙';
+      }
     };
     update();
     setInterval(update, 1000);
@@ -165,13 +170,13 @@ const App = {
       const text = document.getElementById('sync-text');
       if (dot && text) {
         if (status.locked) {
-          dot.className = 'status-dot warning';
+          dot.className = 'pulse-dot warn';
           text.textContent = 'Excel Open (Locked)';
         } else if (status.success) {
-          dot.className = 'status-dot';
+          dot.className = 'pulse-dot';
           text.textContent = 'Excel Synced';
         } else {
-          dot.className = 'status-dot warning';
+          dot.className = 'pulse-dot warn';
           text.textContent = 'Sync Pending';
         }
       }
@@ -180,26 +185,38 @@ const App = {
     }
   },
 
-  showToast(message, type = 'info') {
+  showToast(message, type = 'info', title = '') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    if (type === 'error') icon = '❌';
-    if (type === 'warning') icon = '⚠️';
 
-    toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+    const iconMap = {
+      success: '#icon-check',
+      error:   '#icon-close',
+      warning: '#icon-sync',
+      info:    '#icon-clock'
+    };
+    const iconHref = iconMap[type] || '#icon-clock';
+    const titleText = title || { success: 'Success', error: 'Error', warning: 'Warning', info: 'Info' }[type] || 'Notice';
+
+    toast.innerHTML = `
+      <div class="toast-icon">
+        <svg><use href="${iconHref}"/></svg>
+      </div>
+      <div class="toast-text">
+        <div class="toast-title">${titleText}</div>
+        <div class="toast-msg">${message}</div>
+      </div>
+    `;
     container.appendChild(toast);
 
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translateX(100%)';
+      toast.style.transform = 'translateX(110%)';
       toast.style.transition = 'all 0.25s ease';
-      setTimeout(() => toast.remove(), 250);
+      setTimeout(() => toast.remove(), 260);
     }, 3500);
   },
 

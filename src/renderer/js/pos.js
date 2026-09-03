@@ -86,7 +86,7 @@ const POSController = {
     }
 
     // 4. Payment Method Buttons
-    const payBtns = document.querySelectorAll('.btn-payment');
+    const payBtns = document.querySelectorAll('.pay-tile-btn');
     payBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         payBtns.forEach(b => b.classList.remove('active'));
@@ -136,77 +136,101 @@ const POSController = {
     const box = document.getElementById('pos-customer-suggestions');
     if (!box) return;
 
+    const wrap = document.getElementById('pos-search-wrap');
+
     if (!customers || customers.length === 0) {
       box.innerHTML = `
-        <div style="padding:10px 14px; font-size:12px; color:var(--text-muted);">
-          No existing customer found. Enter details in the fields to the right.
+        <div class="suggestion-create">
+          <svg><use href="#icon-plus"/></svg>
+          No customer found — fill fields to create new
         </div>
       `;
-      box.classList.add('show');
+      box.style.display = 'block';
+      // Show the quick form
+      const qf = document.getElementById('pos-customer-quick-form');
+      if (qf) qf.style.display = 'flex';
       return;
     }
 
-    box.innerHTML = customers.map(c => `
-      <div class="suggestion-item" data-id="${c.id}">
-        <div>
-          <div class="suggestion-name">${c.name}</div>
-          <div class="suggestion-phone">${c.phone} • ${c.customer_code || ''}</div>
+    box.innerHTML = customers.map(c => {
+      const initials = (c.name || '?').charAt(0).toUpperCase();
+      return `
+        <div class="suggestion-item" data-id="${c.id}">
+          <div class="sug-avatar">${initials}</div>
+          <div class="sug-info">
+            <div class="sug-name">${c.name}</div>
+            <div class="sug-phone">${c.phone} &bull; ${c.customer_code || ''}</div>
+          </div>
+          <div class="sug-badge">${c.total_orders || 0} orders</div>
         </div>
-        <div class="suggestion-stats">
-          <div>${c.total_orders || 0} Orders</div>
-          <div style="font-weight:700;">₹${parseFloat(c.total_spent || 0).toFixed(2)}</div>
-        </div>
+      `;
+    }).join('') + `
+      <div class="suggestion-create" id="sug-create-new">
+        <svg><use href="#icon-plus"/></svg>
+        Create new customer
       </div>
-    `).join('');
+    `;
 
     box.querySelectorAll('.suggestion-item').forEach(item => {
       item.addEventListener('click', async () => {
         const id = item.getAttribute('data-id');
         const customer = await window.electronAPI.getCustomerById(id);
-        if (customer) {
-          this.selectCustomer(customer);
-        }
-        box.classList.remove('show');
+        if (customer) this.selectCustomer(customer);
+        box.style.display = 'none';
       });
     });
 
-    box.classList.add('show');
+    const createBtn = box.querySelector('#sug-create-new');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        const qf = document.getElementById('pos-customer-quick-form');
+        const sw = document.getElementById('pos-search-wrap');
+        if (qf) qf.style.display = 'flex';
+        box.style.display = 'none';
+      });
+    }
+
+    box.style.display = 'block';
   },
 
   selectCustomer(customer) {
     this.selectedCustomer = customer;
 
-    // Show Badge
-    const badge = document.getElementById('pos-customer-active-badge');
+    const badge     = document.getElementById('pos-customer-active-badge');
     const badgeName = document.getElementById('pos-badge-name');
-    const badgePhone = document.getElementById('pos-badge-phone');
-    const badgeStats = document.getElementById('pos-badge-stats');
+    const badgeAvtr = document.getElementById('pos-badge-avatar');
+    const badgeStats= document.getElementById('pos-badge-stats');
     const quickForm = document.getElementById('pos-customer-quick-form');
     const searchBox = document.getElementById('pos-customer-search-input');
+    const searchWrap= document.getElementById('pos-search-wrap');
+    const sugBox    = document.getElementById('pos-customer-suggestions');
 
     if (badgeName) badgeName.textContent = customer.name;
-    if (badgePhone) badgePhone.textContent = customer.phone;
+    if (badgeAvtr) badgeAvtr.textContent = (customer.name || '?').charAt(0).toUpperCase();
     if (badgeStats) {
-      badgeStats.textContent = `Spent: ₹${parseFloat(customer.total_spent || 0).toFixed(2)} • ${customer.total_orders || 0} Orders (Last: ${customer.last_order_date || 'None'})`;
+      badgeStats.textContent = `Spent: ₹${parseFloat(customer.total_spent || 0).toFixed(2)} \u2022 ${customer.total_orders || 0} Orders`;
     }
 
-    if (badge) badge.style.display = 'flex';
+    if (badge)     badge.style.display = 'flex';
     if (quickForm) quickForm.style.display = 'none';
+    if (searchWrap) searchWrap.style.display = 'none';
+    if (sugBox)    sugBox.style.display = 'none';
     if (searchBox) searchBox.value = '';
   },
 
   clearSelectedCustomer() {
     this.selectedCustomer = null;
-    const badge = document.getElementById('pos-customer-active-badge');
+    const badge     = document.getElementById('pos-customer-active-badge');
     const quickForm = document.getElementById('pos-customer-quick-form');
+    const searchWrap= document.getElementById('pos-search-wrap');
     const searchBox = document.getElementById('pos-customer-search-input');
+    const sugBox    = document.getElementById('pos-customer-suggestions');
 
-    if (badge) badge.style.display = 'none';
-    if (quickForm) quickForm.style.display = 'flex';
-    if (searchBox) {
-      searchBox.value = '';
-      searchBox.focus();
-    }
+    if (badge)     badge.style.display = 'none';
+    if (searchWrap)searchWrap.style.display = '';
+    if (quickForm) quickForm.style.display = 'none'; // keep hidden until needed
+    if (sugBox)    sugBox.style.display = 'none';
+    if (searchBox) { searchBox.value = ''; searchBox.focus(); }
   },
 
   // ----------------------------------------------------
@@ -229,19 +253,21 @@ const POSController = {
     const container = document.getElementById('pos-category-tabs');
     if (!container) return;
 
+    const allCount = this.menuItems.length;
     let html = `
       <div class="cat-tab ${this.selectedCategory === 'ALL' ? 'active' : ''}" data-cat="ALL">
-        <span>✨</span>
-        <span>ALL ITEMS</span>
+        All Items
+        <span class="cat-count">${allCount}</span>
       </div>
     `;
 
     this.categories.forEach(cat => {
+      const count = this.menuItems.filter(m => m.category_name === cat.name).length;
       const isActive = this.selectedCategory === cat.name;
       html += `
         <div class="cat-tab ${isActive ? 'active' : ''}" data-cat="${cat.name}">
-          <span>${cat.icon || '🍽️'}</span>
-          <span>${cat.name}</span>
+          ${cat.name}
+          <span class="cat-count">${count}</span>
         </div>
       `;
     });
@@ -289,19 +315,19 @@ const POSController = {
 
     grid.innerHTML = filtered.map(item => {
       const inCart = this.cart.find(ci => ci.id === item.id);
-      const qtyBadge = inCart ? `<div class="card-qty-badge">${inCart.quantity}</div>` : '';
-
       return `
         <div class="menu-card" data-id="${item.id}">
-          ${qtyBadge}
-          <div>
-            <div class="card-cat-badge">${item.category_name}</div>
-            <div class="card-item-name">${item.name}</div>
+          <div class="menu-card-body">
+            <div class="menu-card-name">${item.name}</div>
+            <div class="menu-card-cat">${item.category_name}</div>
           </div>
-          <div class="card-bottom-row">
-            <span class="card-item-price">₹${parseFloat(item.price).toFixed(2)}</span>
-            <span class="card-add-icon">+</span>
+          <div class="menu-card-footer">
+            <span class="menu-card-price">₹${parseFloat(item.price).toFixed(2)}</span>
+            <div class="menu-card-add">
+              <svg><use href="#icon-plus"/></svg>
+            </div>
           </div>
+          ${inCart ? `<div style="position:absolute;top:6px;right:6px;background:var(--primary);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);">${inCart.quantity}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -385,10 +411,10 @@ const POSController = {
 
     if (this.cart.length === 0) {
       list.innerHTML = `
-        <div class="cart-empty-state">
-          <span style="font-size:32px;">🛒</span>
-          <div>Your cart is empty</div>
-          <div style="font-size:12px;">Click any menu item on the left to add</div>
+        <div class="cart-empty">
+          <svg viewBox="0 0 120 100"><use href="#illus-empty-cart"/></svg>
+          <div class="cart-empty-title">Cart is empty</div>
+          <div class="cart-empty-sub">Tap any menu item to add it here</div>
         </div>
       `;
       this.updateCartTotals();
@@ -396,21 +422,21 @@ const POSController = {
     }
 
     list.innerHTML = this.cart.map((item, index) => `
-      <div class="cart-item-row">
+      <div class="cart-item">
         <div class="cart-item-info">
-          <div class="cart-item-title">${item.name}</div>
-          <div class="cart-item-rate">${item.category} • ₹${item.price.toFixed(2)}</div>
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-unit">${item.category} &bull; &#8377;${item.price.toFixed(2)} each</div>
         </div>
-
-        <div class="cart-qty-controls">
-          <button class="btn-qty btn-minus" data-index="${index}">-</button>
-          <span class="cart-qty-value">${item.quantity}</span>
-          <button class="btn-qty btn-plus" data-index="${index}">+</button>
+        <div class="cart-item-controls">
+          <button class="qty-btn minus btn-minus" data-index="${index}">
+            <svg><use href="#icon-minus"/></svg>
+          </button>
+          <div class="qty-display">${item.quantity}</div>
+          <button class="qty-btn btn-plus" data-index="${index}">
+            <svg><use href="#icon-plus"/></svg>
+          </button>
         </div>
-
-        <div class="cart-item-total">₹${item.total.toFixed(2)}</div>
-
-        <button class="btn-remove-item" data-index="${index}" title="Remove item">🗑️</button>
+        <div class="cart-item-price">&#8377;${item.total.toFixed(2)}</div>
       </div>
     `).join('');
 
@@ -425,13 +451,6 @@ const POSController = {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         this.decreaseQty(parseInt(b.getAttribute('data-index'), 10));
-      });
-    });
-
-    list.querySelectorAll('.btn-remove-item').forEach(b => {
-      b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.removeItem(parseInt(b.getAttribute('data-index'), 10));
       });
     });
 

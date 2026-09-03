@@ -22,7 +22,7 @@ const CustomersController = {
       });
     }
 
-    const filterChips = document.querySelectorAll('.filter-chip');
+    const filterChips = document.querySelectorAll('.seg-chip');
     filterChips.forEach(chip => {
       chip.addEventListener('click', () => {
         filterChips.forEach(c => c.classList.remove('active'));
@@ -98,21 +98,44 @@ const CustomersController = {
       return;
     }
 
-    tbody.innerHTML = list.map(c => `
-      <tr class="customer-row" data-id="${c.id}" style="cursor:pointer;">
-        <td><strong style="color:var(--text-amber);">${c.customer_code || ('CUST-' + c.id)}</strong></td>
-        <td><strong>${c.name}</strong></td>
-        <td>${c.phone}</td>
-        <td>${c.email || '-'}</td>
-        <td>${c.address || '-'}</td>
-        <td style="text-align:center;">${c.total_orders || 0}</td>
-        <td><strong style="color:var(--primary);">${App.formatCurrency(c.total_spent || 0)}</strong></td>
-        <td>${App.formatDate(c.last_order_date)}</td>
-        <td>
-          <button class="btn btn-secondary btn-sm btn-view-cust-drawer" data-id="${c.id}">View History</button>
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = list.map(c => {
+      const initials = (c.name || '?').charAt(0).toUpperCase();
+      const spent = parseFloat(c.total_spent || 0);
+      const tierClass = spent >= 5000 ? 'gold' : spent >= 2000 ? 'silver' : 'regular';
+      const tierLabel = spent >= 5000 ? '★ Gold' : spent >= 2000 ? '◆ Silver' : 'Regular';
+
+      return `
+        <tr class="customer-row" data-id="${c.id}" style="cursor:pointer;">
+          <td>
+            <div class="cust-cell-name">
+              <div class="cust-avatar">${initials}</div>
+              <div>
+                <div class="cust-name-text">${c.name}</div>
+                <div class="cust-code-text">${c.customer_code || ('CUST-' + c.id)}</div>
+              </div>
+            </div>
+          </td>
+          <td>${c.phone}</td>
+          <td>${c.email || '—'}</td>
+          <td style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.address || '—'}</td>
+          <td style="text-align:center; font-family:var(--font-mono); font-weight:700;">${c.total_orders || 0}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="font-family:var(--font-mono); color:var(--text-primary);">${App.formatCurrency(c.total_spent || 0)}</strong>
+              <span class="spend-tier ${tierClass}">${tierLabel}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-muted); font-size:12px;">${App.formatDate(c.last_order_date)}</td>
+          <td>
+            <div class="table-action-btns">
+              <button class="tbl-btn edit btn-view-cust-drawer" data-id="${c.id}" title="View history">
+                <svg><use href="#icon-view"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     tbody.querySelectorAll('.customer-row').forEach(row => {
       row.addEventListener('click', () => {
@@ -142,13 +165,19 @@ const CustomersController = {
       if (nameEl) nameEl.textContent = customer.name;
       if (codeEl) codeEl.textContent = customer.customer_code || `CUST-${customer.id}`;
       if (phoneEl) phoneEl.textContent = customer.phone;
-      if (emailEl) emailEl.textContent = customer.email || '-';
-      if (addrEl) addrEl.textContent = customer.address || '-';
-      if (notesEl) notesEl.textContent = customer.notes || 'None';
+      if (emailEl) emailEl.textContent = customer.email || '—';
+      if (addrEl) addrEl.textContent = customer.address || '—';
+      if (notesEl) notesEl.textContent = customer.notes || '—';
 
       if (spentEl) spentEl.textContent = App.formatCurrency(customer.total_spent || 0);
       if (ordersEl) ordersEl.textContent = customer.total_orders || 0;
       if (lastOrdEl) lastOrdEl.textContent = App.formatDate(customer.last_order_date);
+
+      // Avatar & phone in header
+      const avatarEl = document.getElementById('drawer-cust-avatar');
+      const phoneDEl = document.getElementById('drawer-cust-phone-display');
+      if (avatarEl) avatarEl.textContent = (customer.name || '?').charAt(0).toUpperCase();
+      if (phoneDEl) phoneDEl.textContent = customer.phone || '—';
 
       // Render Order History Cards
       const ordersList = document.getElementById('drawer-orders-list');
@@ -161,19 +190,20 @@ const CustomersController = {
           `;
         } else {
           ordersList.innerHTML = orders.map(o => `
-            <div class="history-card" data-ord="${o.order_number}">
-              <div>
-                <div class="history-ord-num">${o.order_number}</div>
-                <div class="history-date">${o.order_date} • ${o.order_time} • <span class="status-badge ${o.status.toLowerCase()}">${o.status}</span></div>
+            <div class="order-hist-card" data-ord="${o.order_number}">
+              <div class="ohc-top">
+                <div class="ohc-num">${o.order_number}</div>
+                <div class="ohc-amount">${App.formatCurrency(o.final_total)}</div>
               </div>
-              <div>
-                <div class="history-amount">${App.formatCurrency(o.final_total)}</div>
-                <div style="font-size:11px; color:var(--text-muted); text-align:right;">${o.payment_method}</div>
+              <div class="ohc-items">${o.items_summary || 'Items not available'}</div>
+              <div class="ohc-bottom">
+                <div class="ohc-date">${o.order_date} ${o.order_time ? o.order_time.slice(0,5) : ''} &bull; ${o.payment_method}</div>
+                <span class="badge ${o.status === 'Completed' ? 'badge-success' : o.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'}">${o.status}</span>
               </div>
             </div>
           `).join('');
 
-          ordersList.querySelectorAll('.history-card').forEach(card => {
+          ordersList.querySelectorAll('.order-hist-card').forEach(card => {
             card.addEventListener('click', async () => {
               const ordNum = card.getAttribute('data-ord');
               const details = await window.electronAPI.getOrderDetails(ordNum);
