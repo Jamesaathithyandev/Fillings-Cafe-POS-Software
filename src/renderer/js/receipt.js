@@ -139,6 +139,7 @@ const ReceiptController = {
   }
 };
 
+window.ReceiptController = ReceiptController;
 document.addEventListener('DOMContentLoaded', () => {
   ReceiptController.init();
 });

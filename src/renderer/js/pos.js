@@ -618,8 +618,13 @@ const POSController = {
       await this.loadNextOrderNumber();
 
       // 4. Print / Show Receipt
-      if (shouldPrint && window.ReceiptController) {
-        window.ReceiptController.showReceipt(savedOrder);
+      if (shouldPrint) {
+        const rc = window.ReceiptController || (typeof ReceiptController !== 'undefined' ? ReceiptController : null);
+        if (rc && rc.showReceipt) {
+          rc.showReceipt(savedOrder);
+        } else {
+          console.warn('ReceiptController not found on window');
+        }
       }
 
       // Check sync status in background
