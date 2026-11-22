@@ -82,23 +82,85 @@ const DashboardController = {
               <div class="order-row-time">${o.order_date} ${o.order_time ? o.order_time.slice(0,5) : ''}</div>
             </div>
             <div class="order-row-actions">
-              <button class="row-action-btn btn-view-order-dash" title="View Bill" data-ord="${o.order_number}">
+              <button class="row-action-btn btn-view-order-dash" title="View / Print options" data-ord="${o.order_number}">
                 <svg><use href="#icon-view"/></svg>
               </button>
-              <button class="row-action-btn btn-print-order-dash" title="Re-Print" data-ord="${o.order_number}">
+              <button class="row-action-btn btn-bill-order-dash" title="Print Customer Bill only" data-ord="${o.order_number}">
                 <svg><use href="#icon-print"/></svg>
+              </button>
+              <button class="row-action-btn btn-delete-order-dash" title="Delete Order" data-ord="${o.order_number}" style="color:var(--rose-400);">
+                <svg><use href="#icon-trash"/></svg>
               </button>
             </div>
           </div>
         `;
       }).join('');
 
-      list.querySelectorAll('.btn-view-order-dash, .btn-print-order-dash').forEach(btn => {
+      list.querySelectorAll('.btn-view-order-dash').forEach(btn => {
         btn.addEventListener('click', async () => {
           const ordNum = btn.getAttribute('data-ord');
           const details = await window.electronAPI.getOrderDetails(ordNum);
           if (details && window.ReceiptController) {
             window.ReceiptController.showReceipt(details);
+          }
+        });
+      });
+
+      // Print Customer Bill Only (no KOT)
+      list.querySelectorAll('.btn-bill-order-dash').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const ordNum = btn.getAttribute('data-ord');
+          const details = await window.electronAPI.getOrderDetails(ordNum);
+          if (!details) return;
+          if (typeof App !== 'undefined' && App.showToast) {
+            App.showToast('🖨️ Printing Customer Bill...', 'info');
+          }
+          if (window.electronAPI && window.electronAPI.directPrint) {
+            const html = window.ReceiptController ? window.ReceiptController.generateCustomerBillHtml(details) : '';
+            const result = await window.electronAPI.directPrint({ order: details, view: 'customer', html });
+            if (result && result.success) {
+              if (typeof App !== 'undefined' && App.showToast) {
+                App.showToast('✅ Customer Bill printed!', 'success');
+              }
+            } else if (window.ReceiptController) {
+              // Fallback: open the receipt modal
+              window.ReceiptController.showReceipt(details);
+            }
+          } else if (window.ReceiptController) {
+            window.ReceiptController.showReceipt(details);
+          }
+        });
+      });
+
+      list.querySelectorAll('.btn-delete-order-dash').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const ordNum = btn.getAttribute('data-ord');
+          if (!ordNum) return;
+          const confirmed = confirm(`⚠️ Are you sure you want to permanently delete order #${ordNum}?\n\nThis will remove it from the database, cloud sync, and Excel report.`);
+          if (!confirmed) return;
+
+          try {
+            if (window.electronAPI && window.electronAPI.deleteOrder) {
+              const res = await window.electronAPI.deleteOrder(ordNum);
+              if (res && res.success) {
+                if (typeof App !== 'undefined' && App.showToast) {
+                  App.showToast(`🗑️ Order #${ordNum} deleted successfully`, 'success');
+                }
+                DashboardController.refresh();
+                if (typeof POSController !== 'undefined' && POSController.loadOpenOrders) {
+                  POSController.loadOpenOrders();
+                }
+                if (typeof ReportsController !== 'undefined' && ReportsController.refresh) {
+                  ReportsController.refresh();
+                }
+              } else {
+                alert(`Failed to delete order: ${res ? res.error : 'Unknown error'}`);
+              }
+            }
+          } catch (err) {
+            console.error('Delete order error:', err);
+            alert(`Error deleting order: ${err.message}`);
           }
         });
       });

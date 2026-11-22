@@ -19,6 +19,21 @@ function generateOrderNumber(id) {
   return `ORD-${padZero(id, 6)}`;
 }
 
+/**
+ * Test Mode Guard — Detects if a customer name is a test/dummy name.
+ * Orders for test customers are processed in-memory for receipt printing
+ * but are NEVER saved to the database, Excel, or cloud.
+ */
+function isTestCustomerName(name) {
+  if (!name) return false;
+  const lower = name.trim().toLowerCase();
+  return lower === 'test' ||
+    lower === 'test order' ||
+    lower === 'test customer' ||
+    lower === 'testing' ||
+    lower === 'test user';
+}
+
 // ==========================================
 // 1. CUSTOMERS
 // ==========================================
@@ -107,6 +122,24 @@ function createOrUpdateCustomer(customerData) {
     throw new Error('Customer Name and Phone number are required.');
   }
 
+  // Test mode: do not persist test customers to the database
+  if (isTestCustomerName(name)) {
+    return {
+      id: 0,
+      customer_code: 'TEST-CUST',
+      name: name.trim(),
+      phone: phone.trim(),
+      email: '',
+      address: '',
+      notes: '',
+      total_orders: 0,
+      total_spent: 0,
+      last_order_date: 'N/A',
+      first_order_date: 'N/A',
+      is_test: true
+    };
+  }
+
   const cleanPhone = phone.trim();
   const cleanName = name.trim();
   const now = new Date().toISOString();
@@ -121,10 +154,21 @@ function createOrUpdateCustomer(customerData) {
     `, [cleanName, email.trim(), address.trim(), notes.trim(), now, existing.id]);
     return getCustomerById(existing.id);
   } else {
-    // Determine next ID for customer_code
-    const maxRes = db.queryOne("SELECT MAX(id) as max_id FROM customers");
-    const nextId = (maxRes && maxRes.max_id ? maxRes.max_id : 0) + 1;
-    const customerCode = generateCustomerCode(nextId);
+    // Determine next ID for customer_code safely
+    const maxNumRes = db.queryOne("SELECT MAX(CAST(SUBSTR(customer_code, 6) AS INTEGER)) as max_num FROM customers WHERE customer_code LIKE 'CUST-%'");
+    const maxIdRes = db.queryOne("SELECT MAX(id) as max_id FROM customers");
+    
+    // Discard any customer codes >= 100000 (e.g. manual phone numbers)
+    const validMaxNum = (maxNumRes && maxNumRes.max_num && maxNumRes.max_num < 100000) ? parseInt(maxNumRes.max_num, 10) : 0;
+    const maxId = (maxIdRes && maxIdRes.max_id) ? parseInt(maxIdRes.max_id, 10) : 0;
+    
+    let nextNum = Math.max(validMaxNum, maxId) + 1;
+    let customerCode = generateCustomerCode(nextNum);
+    
+    while (db.queryOne("SELECT id FROM customers WHERE customer_code = ?", [customerCode])) {
+      nextNum++;
+      customerCode = generateCustomerCode(nextNum);
+    }
 
     const res = db.run(`
       INSERT INTO customers (customer_code, name, phone, email, address, notes, created_at, updated_at)
@@ -230,9 +274,23 @@ function deleteMenuItem(id) {
 // ==========================================
 
 function getNextOrderNumber() {
-  const maxRes = db.queryOne("SELECT MAX(id) as max_id FROM orders");
-  const nextId = (maxRes && maxRes.max_id ? maxRes.max_id : 0) + 1;
-  return generateOrderNumber(nextId);
+  // 1. Find the true highest numerical order suffix from all existing 'ORD-%' orders
+  const maxNumRes = db.queryOne("SELECT MAX(CAST(SUBSTR(order_number, 5) AS INTEGER)) as max_num FROM orders WHERE order_number LIKE 'ORD-%'");
+  const maxIdRes = db.queryOne("SELECT MAX(id) as max_id FROM orders");
+  
+  const maxNum = (maxNumRes && maxNumRes.max_num) ? parseInt(maxNumRes.max_num, 10) : 0;
+  const maxId = (maxIdRes && maxIdRes.max_id) ? parseInt(maxIdRes.max_id, 10) : 0;
+  
+  let nextNum = Math.max(maxNum, maxId) + 1;
+  let candidate = generateOrderNumber(nextNum);
+  
+  // Guard loop: Ensure candidate does not collide with ANY existing record
+  while (db.queryOne("SELECT id FROM orders WHERE order_number = ?", [candidate])) {
+    nextNum++;
+    candidate = generateOrderNumber(nextNum);
+  }
+  
+  return candidate;
 }
 
 function saveOrder(orderPayload) {
@@ -244,6 +302,7 @@ function saveOrder(orderPayload) {
     payment_method = 'Cash',
     order_type = 'Dine-In',
     packaging_charge = 0,
+    status = 'COMPLETED', // 'OPEN' or 'COMPLETED'
     notes = ''
   } = orderPayload;
 
@@ -251,8 +310,80 @@ function saveOrder(orderPayload) {
     throw new Error('Order must contain at least one menu item.');
   }
 
-  if (!customer || !customer.name || !customer.phone) {
-    throw new Error('Customer Name and Phone Number are required.');
+  if (!customer || !customer.name) {
+    throw new Error('Customer Name is required.');
+  }
+
+  // Test Mode Guard: If customer name is a test name, process calculations
+  // in-memory and return a mock order without saving ANYTHING to the DB.
+  if (isTestCustomerName(customer.name)) {
+    let subtotal = 0;
+    const mockItems = items.map(item => {
+      const qty = parseInt(item.quantity, 10) || 1;
+      const unitPrice = parseFloat(item.price) || 0;
+      const totalPrice = qty * unitPrice;
+      subtotal += totalPrice;
+      return {
+        id: null,
+        order_id: 0,
+        order_number: 'TEST-ORD',
+        menu_item_id: item.id || null,
+        item_code: item.code || item.item_code || '',
+        item_name: item.name,
+        category_name: item.category || item.category_name || 'GENERAL',
+        quantity: qty,
+        unit_price: unitPrice,
+        total_price: totalPrice
+      };
+    });
+
+    let calculatedDiscount = 0;
+    if (discount_type === 'percent') {
+      calculatedDiscount = (subtotal * (parseFloat(discount) || 0)) / 100;
+    } else {
+      calculatedDiscount = parseFloat(discount) || 0;
+    }
+    if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
+
+    const pkgCharge = parseFloat(packaging_charge) || 0;
+    const finalTotal = Math.max(0, subtotal + pkgCharge - calculatedDiscount);
+
+    const now = new Date();
+    const order_date = now.toISOString().split('T')[0];
+    const order_time = now.toTimeString().split(' ')[0];
+
+    return {
+      id: 0,
+      order_number: 'TEST-ORD',
+      customer_id: 0,
+      customer_name: customer.name.trim(),
+      customer_phone: (customer.phone || '0000000000').trim(),
+      order_date,
+      order_time,
+      subtotal,
+      discount: calculatedDiscount,
+      discount_type,
+      packaging_charge: pkgCharge,
+      order_type,
+      final_total: finalTotal,
+      payment_method,
+      status,
+      notes: notes.trim(),
+      items: mockItems,
+      customer: {
+        id: 0,
+        customer_code: 'TEST-CUST',
+        name: customer.name.trim(),
+        phone: (customer.phone || '0000000000').trim(),
+        total_orders: 0,
+        total_spent: 0
+      },
+      is_test: true
+    };
+  }
+
+  if (!customer.phone) {
+    throw new Error('Customer Phone Number is required.');
   }
 
   // 1. Ensure Customer exists / update customer
@@ -289,23 +420,40 @@ function saveOrder(orderPayload) {
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const order_time = `${hours}:${minutes}:${seconds}`;
 
-  const order_number = getNextOrderNumber();
+  let order_number = getNextOrderNumber();
   const created_at = now.toISOString();
 
-  // 4. Save Order Header
-  const orderRes = db.run(`
-    INSERT INTO orders (
-      order_number, customer_id, customer_name, customer_phone,
-      order_date, order_time, subtotal, discount, discount_type,
-      packaging_charge, order_type,
-      final_total, payment_method, status, notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?)
-  `, [
-    order_number, savedCustomer.id, savedCustomer.name, savedCustomer.phone,
-    order_date, order_time, subtotal, calculatedDiscount, discount_type,
-    pkgCharge, order_type,
-    finalTotal, payment_method, notes.trim(), created_at
-  ]);
+  // 4. Save Order Header (with auto-retry if concurrent sync created an order)
+  let orderRes = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      orderRes = db.run(`
+        INSERT INTO orders (
+          order_number, customer_id, customer_name, customer_phone,
+          order_date, order_time, subtotal, discount, discount_type,
+          packaging_charge, order_type,
+          final_total, payment_method, status, notes, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        order_number, savedCustomer.id, savedCustomer.name, savedCustomer.phone,
+        order_date, order_time, subtotal, calculatedDiscount, discount_type,
+        pkgCharge, order_type,
+        finalTotal, payment_method, status, notes.trim(), created_at
+      ]);
+      break;
+    } catch (insertErr) {
+      if (insertErr.message && insertErr.message.includes('UNIQUE constraint failed: orders.order_number')) {
+        // Recalculate next order number and retry
+        order_number = getNextOrderNumber();
+      } else {
+        throw insertErr;
+      }
+    }
+  }
+
+  if (!orderRes) {
+    throw new Error('Failed to save order: could not allocate a unique order number.');
+  }
 
   const orderId = orderRes.lastInsertRowid;
 
@@ -363,11 +511,120 @@ function getRecentOrders(limit = 20) {
   const rows = db.queryAll(`
     SELECT o.*, c.customer_code
     FROM orders o
-    JOIN customers c ON o.customer_id = c.id
+    LEFT JOIN customers c ON o.customer_id = c.id
     ORDER BY o.id DESC
     LIMIT ?
   `, [limit]);
   return rows;
+}
+
+function getOpenOrders() {
+  const rows = db.queryAll(`
+    SELECT o.*, c.customer_code
+    FROM orders o
+    LEFT JOIN customers c ON o.customer_id = c.id
+    WHERE o.status = 'OPEN'
+    ORDER BY o.id DESC
+  `);
+  return rows.map(o => {
+    const items = db.queryAll("SELECT * FROM order_items WHERE order_id = ?", [o.id]);
+    return { ...o, items };
+  });
+}
+
+function appendItemsToOrder(orderIdOrNumber, newItems, options = {}) {
+  const order = getOrderDetails(orderIdOrNumber);
+  if (!order) throw new Error('Order not found');
+  if (order.status !== 'OPEN') throw new Error('Cannot add items to a completed or cancelled order');
+  if (!newItems || newItems.length === 0) throw new Error('No items to add');
+
+  // Insert new items
+  for (const item of newItems) {
+    const qty = parseInt(item.quantity, 10) || 1;
+    const unitPrice = parseFloat(item.price || item.unit_price) || 0;
+    const totalPrice = qty * unitPrice;
+
+    db.run(`
+      INSERT INTO order_items (
+        order_id, order_number, menu_item_id, item_code,
+        item_name, category_name, quantity, unit_price, total_price
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      order.id, order.order_number, item.id || item.menu_item_id || null, item.code || item.item_code || '',
+      item.name || item.item_name, item.category || item.category_name || 'GENERAL',
+      qty, unitPrice, totalPrice
+    ]);
+  }
+
+  // Recalculate full subtotal and final total from all items
+  const allItems = db.queryAll("SELECT * FROM order_items WHERE order_id = ?", [order.id]);
+  let subtotal = 0;
+  for (const it of allItems) {
+    subtotal += (it.quantity * it.unit_price);
+  }
+
+  const discountType = options.discount_type !== undefined ? options.discount_type : order.discount_type;
+  const discountVal = options.discount !== undefined ? options.discount : (order.discount || 0);
+  let calculatedDiscount = 0;
+  if (discountType === 'percent') {
+    calculatedDiscount = (subtotal * (parseFloat(discountVal) || 0)) / 100;
+  } else {
+    calculatedDiscount = parseFloat(discountVal) || 0;
+  }
+  if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
+
+  const pkgCharge = options.packaging_charge !== undefined ? parseFloat(options.packaging_charge) : (parseFloat(order.packaging_charge) || 0);
+  const finalTotal = Math.max(0, subtotal + pkgCharge - calculatedDiscount);
+  const notes = options.notes !== undefined ? options.notes : order.notes;
+
+  db.run(`
+    UPDATE orders
+    SET subtotal = ?, discount = ?, discount_type = ?, packaging_charge = ?, final_total = ?, notes = ?
+    WHERE id = ?
+  `, [subtotal, calculatedDiscount, discountType, pkgCharge, finalTotal, (notes || '').trim(), order.id]);
+
+  return {
+    success: true,
+    order: getOrderDetails(order.id),
+    newItems
+  };
+}
+
+function settleOrder(orderIdOrNumber, paymentDetails = {}) {
+  const order = getOrderDetails(orderIdOrNumber);
+  if (!order) throw new Error('Order not found');
+
+  const paymentMethod = paymentDetails.payment_method || order.payment_method || 'Cash';
+  const discountVal = paymentDetails.discount !== undefined ? paymentDetails.discount : order.discount;
+  const discountType = paymentDetails.discount_type || order.discount_type || 'flat';
+  const pkgCharge = paymentDetails.packaging_charge !== undefined ? parseFloat(paymentDetails.packaging_charge) : (parseFloat(order.packaging_charge) || 0);
+  const orderType = paymentDetails.order_type || order.order_type || 'Dine-In';
+  const notes = paymentDetails.notes !== undefined ? paymentDetails.notes : order.notes;
+
+  // Recalculate
+  let subtotal = 0;
+  const items = db.queryAll("SELECT * FROM order_items WHERE order_id = ?", [order.id]);
+  for (const it of items) {
+    subtotal += (it.quantity * it.unit_price);
+  }
+
+  let calculatedDiscount = 0;
+  if (discountType === 'percent') {
+    calculatedDiscount = (subtotal * (parseFloat(discountVal) || 0)) / 100;
+  } else {
+    calculatedDiscount = parseFloat(discountVal) || 0;
+  }
+  if (calculatedDiscount > subtotal) calculatedDiscount = subtotal;
+
+  const finalTotal = Math.max(0, subtotal + pkgCharge - calculatedDiscount);
+
+  db.run(`
+    UPDATE orders
+    SET status = 'COMPLETED', payment_method = ?, discount = ?, discount_type = ?, packaging_charge = ?, order_type = ?, final_total = ?, notes = ?
+    WHERE id = ?
+  `, [paymentMethod, calculatedDiscount, discountType, pkgCharge, orderType, finalTotal, (notes || '').trim(), order.id]);
+
+  return getOrderDetails(order.id);
 }
 
 function cancelOrder(orderId, reason = '') {
@@ -379,6 +636,17 @@ function cancelOrder(orderId, reason = '') {
   db.run("UPDATE orders SET status = 'CANCELLED', notes = ? WHERE id = ?", [notes.trim(), orderId]);
 
   return getOrderDetails(orderId);
+}
+
+function deleteOrder(orderIdOrNumber) {
+  const order = getOrderDetails(orderIdOrNumber);
+  if (!order) throw new Error('Order not found');
+
+  db.run("DELETE FROM order_items WHERE order_id = ? OR order_number = ?", [order.id, order.order_number]);
+  db.run("DELETE FROM orders WHERE id = ? OR order_number = ?", [order.id, order.order_number]);
+  db.saveDatabase();
+
+  return { success: true, deletedOrder: order };
 }
 
 // ==========================================
@@ -415,9 +683,15 @@ function getDashboardSummary() {
   const customerCount = db.queryOne("SELECT COUNT(*) as count FROM customers");
   const orderCount = db.queryOne("SELECT COUNT(*) as count, COALESCE(SUM(final_total), 0) as total_sales FROM orders WHERE status = 'COMPLETED'");
 
-  const totalOrders = orderCount ? orderCount.count : 0;
+  // Detect maximum order sequence number so dashboard matches bill numbers even if historical test bills were pruned
+  const maxOrderRes = db.queryOne("SELECT MAX(CAST(SUBSTR(order_number, 5) AS INTEGER)) as max_num FROM orders WHERE order_number LIKE 'ORD-%'");
+  const maxOrderNum = (maxOrderRes && maxOrderRes.max_num) ? parseInt(maxOrderRes.max_num, 10) : 0;
+
+  const totalOrders = Math.max(orderCount ? orderCount.count : 0, maxOrderNum);
   const totalSales = orderCount ? orderCount.total_sales : 0;
-  const aov = totalOrders > 0 ? (totalSales / totalOrders) : 0;
+  const aov = (orderCount && orderCount.count > 0) ? (totalSales / orderCount.count) : (totalOrders > 0 ? totalSales / totalOrders : 0);
+
+  const monthOrdersCount = Math.max(monthStats ? monthStats.orders_count : 0, maxOrderNum);
 
   return {
     today: {
@@ -428,7 +702,7 @@ function getDashboardSummary() {
     month: {
       month: currentMonthPrefix,
       sales: monthStats ? monthStats.total_sales : 0,
-      orders: monthStats ? monthStats.orders_count : 0
+      orders: monthOrdersCount
     },
     totals: {
       customers: customerCount ? customerCount.count : 0,
@@ -678,6 +952,9 @@ function getProfitSummary() {
 }
 
 module.exports = {
+  // Test mode helper
+  isTestCustomerName,
+
   // Customers
   getCustomerById,
   getCustomerByPhone,
@@ -700,7 +977,11 @@ module.exports = {
   getOrderDetails,
   getOrdersByCustomer,
   getRecentOrders,
+  getOpenOrders,
+  appendItemsToOrder,
+  settleOrder,
   cancelOrder,
+  deleteOrder,
   
   // Dashboard & Reports
   getDashboardSummary,

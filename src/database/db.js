@@ -60,11 +60,76 @@ function getDbFilePath() {
  */
 async function initDatabase(customPath = null) {
   const SQL = await initSqlJs();
+  if (customPath) {
+    dbFilePath = customPath;
+  }
   const filePath = customPath || getDbFilePath();
 
   if (fs.existsSync(filePath)) {
-    const fileBuffer = fs.readFileSync(filePath);
-    db = new SQL.Database(fileBuffer);
+    let loaded = false;
+    try {
+      const fileBuffer = fs.readFileSync(filePath);
+      if (fileBuffer.length >= 16) {
+        db = new SQL.Database(fileBuffer);
+        // Verify it can execute a basic query
+        db.run('SELECT 1;');
+        loaded = true;
+      } else {
+        throw new Error('Database file is 0 bytes or truncated (power cut)');
+      }
+    } catch (loadErr) {
+      console.warn('⚠️ Corrupted database detected (likely from power cut):', loadErr.message);
+
+      // Preserve corrupted file with timestamp so no raw data is lost
+      const corruptBackupPath = filePath + `.corrupt_${Date.now()}`;
+      try {
+        fs.renameSync(filePath, corruptBackupPath);
+        console.log(`Preserved damaged file to: ${corruptBackupPath}`);
+      } catch (renameErr) {
+        try { fs.unlinkSync(filePath); } catch (e) {}
+      }
+
+      // Automatically search for the newest valid backup in the backups folder
+      const backupsDir = path.join(path.dirname(filePath), 'backups');
+      if (fs.existsSync(backupsDir)) {
+        try {
+          const backupFiles = fs.readdirSync(backupsDir)
+            .filter(f => f.endsWith('.db'))
+            .sort((a, b) => {
+              const statA = fs.statSync(path.join(backupsDir, a));
+              const statB = fs.statSync(path.join(backupsDir, b));
+              return statB.mtimeMs - statA.mtimeMs; // newest first
+            });
+
+          for (const bFile of backupFiles) {
+            try {
+              const bPath = path.join(backupsDir, bFile);
+              const bBuf = fs.readFileSync(bPath);
+              if (bBuf.length >= 16) {
+                const testDb = new SQL.Database(bBuf);
+                testDb.run('SELECT 1;');
+                db = testDb;
+                saveDatabase();
+                console.log(`✅ Auto-recovered from recent backup: ${bFile}`);
+                loaded = true;
+                break;
+              }
+            } catch (e) {
+              // try older backup
+            }
+          }
+        } catch (e) {
+          console.warn('Could not inspect backups directory:', e.message);
+        }
+      }
+
+      // If no valid backup could be loaded, initialize clean database
+      if (!loaded) {
+        console.warn('No valid backup found. Creating fresh database.');
+        db = new SQL.Database();
+        saveDatabase();
+      }
+    }
   } else {
     db = new SQL.Database();
     saveDatabase();
@@ -105,14 +170,28 @@ async function initDatabase(customPath = null) {
 }
 
 /**
- * Persist in-memory database to disk
+ * Persist in-memory database to disk safely (atomic write)
  */
 function saveDatabase() {
   if (!db) return;
   const filePath = getDbFilePath();
   const data = db.export();
   const buffer = Buffer.from(data);
-  fs.writeFileSync(filePath, buffer);
+  const tempPath = filePath + '.tmp';
+  try {
+    fs.writeFileSync(tempPath, buffer);
+    try {
+      fs.renameSync(tempPath, filePath);
+    } catch (renameErr) {
+      fs.copyFileSync(tempPath, filePath);
+      try { fs.unlinkSync(tempPath); } catch (e) {}
+    }
+  } catch (err) {
+    console.error('Error in atomic saveDatabase:', err.message);
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (e) {}
+  }
 }
 
 /**

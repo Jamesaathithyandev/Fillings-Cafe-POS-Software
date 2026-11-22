@@ -1,0 +1,18 @@
+name: Supabase Database Keep-Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 06:00 UTC (11:30 AM IST) to prevent 7-day inactivity pause
+    - cron: '0 6 */3 * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: sb_publishable_yO5MA4ftWpXUWZCn3j68UA_fY2E4H0v" \
+            -H "Authorization: Bearer sb_publishable_yO5MA4ftWpXUWZCn3j68UA_fY2E4H0v" \
+            "https://ffmzwilwfwdetjxavtbr.supabase.co/rest/v1/categories?select=id&limit=1"

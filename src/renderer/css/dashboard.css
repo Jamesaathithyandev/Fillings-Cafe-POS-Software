@@ -253,9 +253,12 @@
 
 .order-row-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--t-fast);
 }
+.order-row:hover .order-row-actions { opacity: 1; }
 
 .row-action-btn {
   width: 28px;
@@ -269,9 +272,23 @@
   cursor: pointer;
   color: var(--text-muted);
   transition: all var(--t-fast);
+  flex-shrink: 0;
 }
 .row-action-btn svg { width: 13px; height: 13px; }
-.row-action-btn:hover { background: var(--primary-alpha12); color: var(--primary); border-color: var(--primary-alpha20); }
+.row-action-btn:hover {
+  background: rgba(255,255,255,0.09);
+  color: var(--text-primary);
+  border-color: var(--border-2);
+  transform: scale(1.08);
+}
+.row-action-btn.btn-delete-order-dash:hover,
+.btn-delete-report-order:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
 
 /* ----------------------------------------------------------------
    Top Selling Items — Rank Bars

@@ -225,13 +225,14 @@ const ReportsController = {
             <th>Final Total</th>
             <th>Payment</th>
             <th>Status</th>
+            <th style="text-align:center;">Actions</th>
           </tr>
         `;
       }
 
       if (body) {
         if (this.customData.orders.length === 0) {
-          body.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">No orders found within this date range.</td></tr>`;
+          body.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:30px; color:var(--text-muted);">No orders found within this date range.</td></tr>`;
           return;
         }
 
@@ -239,15 +240,67 @@ const ReportsController = {
           <tr>
             <td><strong style="color:var(--text-amber);">${o.order_number}</strong></td>
             <td><strong>${o.customer_name}</strong></td>
-            <td>${o.customer_phone}</td>
-            <td>${o.order_date} ${o.order_time}</td>
+            <td>${o.customer_phone || '—'}</td>
+            <td>${o.order_date} ${o.order_time ? o.order_time.slice(0,5) : ''}</td>
             <td>${App.formatCurrency(o.subtotal)}</td>
             <td>${App.formatCurrency(o.discount)}</td>
             <td><strong style="color:var(--primary);">${App.formatCurrency(o.final_total)}</strong></td>
             <td><span style="background:var(--bg-input); padding:3px 8px; border-radius:4px; font-size:11px;">${o.payment_method}</span></td>
-            <td><span class="status-badge ${o.status.toLowerCase()}">${o.status}</span></td>
+            <td><span class="badge ${o.status === 'Completed' ? 'badge-success' : o.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'}">${o.status}</span></td>
+            <td style="text-align:center;">
+              <div style="display:flex; justify-content:center; gap:6px;">
+                <button class="row-action-btn btn-view-report-order" data-ord="${o.order_number}" title="View Order / Print Bill" style="padding:4px 6px;">
+                  <svg style="width:14px; height:14px;"><use href="#icon-view"/></svg>
+                </button>
+                <button class="row-action-btn btn-delete-report-order" data-ord="${o.order_number}" title="Delete Order" style="padding:4px 6px; color:var(--rose-400);">
+                  <svg style="width:14px; height:14px;"><use href="#icon-trash"/></svg>
+                </button>
+              </div>
+            </td>
           </tr>
         `).join('');
+
+        body.querySelectorAll('.btn-view-report-order').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const ordNum = btn.getAttribute('data-ord');
+            const details = await window.electronAPI.getOrderDetails(ordNum);
+            if (details && window.ReceiptController) {
+              window.ReceiptController.showReceipt(details);
+            }
+          });
+        });
+
+        body.querySelectorAll('.btn-delete-report-order').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const ordNum = btn.getAttribute('data-ord');
+            if (!ordNum) return;
+            const confirmed = confirm(`⚠️ Are you sure you want to permanently delete order #${ordNum}?\n\nThis will remove it from the database, cloud sync, and Excel report.`);
+            if (!confirmed) return;
+
+            try {
+              if (window.electronAPI && window.electronAPI.deleteOrder) {
+                const res = await window.electronAPI.deleteOrder(ordNum);
+                if (res && res.success) {
+                  if (typeof App !== 'undefined' && App.showToast) {
+                    App.showToast(`🗑️ Order #${ordNum} deleted successfully`, 'success');
+                  }
+                  ReportsController.loadCustomReport();
+                  if (typeof DashboardController !== 'undefined' && DashboardController.refresh) {
+                    DashboardController.refresh();
+                  }
+                  if (typeof POSController !== 'undefined' && POSController.loadOpenOrders) {
+                    POSController.loadOpenOrders();
+                  }
+                } else {
+                  alert(`Failed to delete order: ${res ? res.error : 'Unknown error'}`);
+                }
+              }
+            } catch (err) {
+              console.error('Delete order error:', err);
+              alert(`Error deleting order: ${err.message}`);
+            }
+          });
+        });
       }
 
     } catch (e) {

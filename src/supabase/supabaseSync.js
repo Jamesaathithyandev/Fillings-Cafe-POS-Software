@@ -1,7 +1,19 @@
 // Sree Sai Fillings Cafe - Supabase Cloud Synchronization Engine
 // Handles offline-first background sync of Orders, Customers, and Menu
 
-// Polyfill WebSocket for Node/Electron main process
+// Polyfill fetch and WebSocket for Node/Electron 22 main process
+if (typeof globalThis.fetch === 'undefined') {
+  try {
+    const crossFetch = require('cross-fetch');
+    globalThis.fetch = crossFetch;
+    if (typeof globalThis.Headers === 'undefined') globalThis.Headers = crossFetch.Headers;
+    if (typeof globalThis.Request === 'undefined') globalThis.Request = crossFetch.Request;
+    if (typeof globalThis.Response === 'undefined') globalThis.Response = crossFetch.Response;
+  } catch (e) {
+    console.warn('Fetch polyfill error:', e);
+  }
+}
+
 if (typeof globalThis.WebSocket === 'undefined') {
   try {
     globalThis.WebSocket = require('ws');
@@ -13,6 +25,7 @@ if (typeof globalThis.WebSocket === 'undefined') {
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
+const { isTestCustomerName } = require('../database/queries');
 
 let supabase = null;
 let isConfigured = false;
@@ -21,8 +34,8 @@ let isConfigured = false;
 const _d = (b) => Buffer.from(b, 'base64').toString('utf8');
 const DEFAULT_CONFIG = {
   supabaseUrl: _d('aHR0cHM6Ly9mZm16d2lsd2Z3ZGV0anhhdnRici5zdXBhYmFzZS5jbw=='),
-  supabaseKey: _d('c2Jfc2VjcmV0X3BydDZES1Npb2JFdTR2dUI0SlJMd0FfRUVHQXZkZUU='),
-  supabaseAnonKey: _d('c2JfcHVibGlzaGFibGVfeU81TUE0ZnRXZFhVV1pDbjNqNjhVQXfZWTI0SDB2'),
+  supabaseKey: _d('c2Jfc2VjcmV0X3BydDZES1Npb2JFdTR2dUI0SlJMd0FfRUVIQXZkZUU='),
+  supabaseAnonKey: _d('c2JfcHVibGlzaGFibGVfeU81TUE0ZnRXcFhVV1pDbjNqNjhVQV9mWTJFNEgwdg=='),
   enabled: true
 };
 
@@ -49,7 +62,10 @@ try {
 
   if (cfg.supabaseUrl && (cfg.supabaseKey || cfg.supabaseAnonKey) && cfg.enabled) {
     supabase = createClient(cfg.supabaseUrl, cfg.supabaseKey || cfg.supabaseAnonKey, {
-      auth: { persistSession: false }
+      auth: { persistSession: false },
+      global: {
+        fetch: globalThis.fetch
+      }
     });
     isConfigured = true;
     console.log('Supabase Cloud Sync initialized successfully.');
@@ -60,25 +76,41 @@ try {
 
 const SupabaseSync = {
   isReady() {
+    if (process.env.NODE_ENV === 'test') return false;
     return isConfigured && supabase !== null;
   },
 
+  getClient() {
+    return supabase;
+  },
+
   /**
-   * Check connection health
+   * Check connection health with resilient retry to avoid transient offline flags
    */
   async checkConnection() {
     if (!this.isReady()) return { connected: false, message: 'Supabase not configured' };
-    try {
-      const { data, error } = await supabase.from('categories').select('id').limit(1);
-      if (error && error.code === 'PGRST205') {
-        return { connected: true, tablesReady: false, message: 'Connected, but tables need to be created in SQL Editor' };
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const { data, error } = await supabase.from('categories').select('id').limit(1);
+        if (error && error.code === 'PGRST205') {
+          return { connected: true, tablesReady: false, message: 'Connected, but tables need to be created in SQL Editor' };
+        }
+        if (error) {
+          if (attempt === 1) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+          return { connected: false, tablesReady: false, message: error.message };
+        }
+        return { connected: true, tablesReady: true, message: 'Cloud Sync Online' };
+      } catch (err) {
+        if (attempt === 1) {
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+        return { connected: false, message: err.message };
       }
-      if (error) {
-        return { connected: false, tablesReady: false, message: error.message };
-      }
-      return { connected: true, tablesReady: true, message: 'Cloud Sync Online' };
-    } catch (err) {
-      return { connected: false, message: err.message };
     }
   },
 
@@ -86,17 +118,21 @@ const SupabaseSync = {
    * Sync Customer to Supabase
    */
   async syncCustomer(customer) {
-    if (!this.isReady()) return;
+    if (!this.isReady() || !customer || !customer.phone) return;
+    // Test mode guard: never sync test customers to cloud
+    if (isTestCustomerName(customer.name)) return;
     try {
+      const cleanPhone = customer.phone.trim();
+      const code = customer.customer_code || ('CUST-' + (cleanPhone.replace(/\D/g, '').slice(-6) || '000001'));
       const payload = {
-        customer_code: customer.customer_code,
+        customer_code: code,
         name: customer.name,
-        phone: customer.phone,
-        email: customer.email || '',
-        address: customer.address || '',
-        notes: customer.notes || '',
+        phone: cleanPhone,
         updated_at: new Date().toISOString()
       };
+      if (customer.email !== undefined && customer.email !== '') payload.email = customer.email;
+      if (customer.address !== undefined && customer.address !== '') payload.address = customer.address;
+      if (customer.notes !== undefined && customer.notes !== '') payload.notes = customer.notes;
 
       const { error } = await supabase
         .from('customers')
@@ -113,12 +149,14 @@ const SupabaseSync = {
    * Sync Order & Order Items to Supabase
    */
   async syncOrder(order, items = []) {
-    if (!this.isReady()) return;
+    if (!this.isReady() || !order || !order.order_number) return;
+    // Test mode guard: never sync test orders to cloud
+    if (order.is_test || isTestCustomerName(order.customer_name) || order.order_number === 'TEST-ORD') return;
     try {
       // 1. Sync Customer First
       if (order.customer_name && order.customer_phone) {
         await this.syncCustomer({
-          customer_code: order.customer_code || 'CUST-000000',
+          customer_code: order.customer_code,
           name: order.customer_name,
           phone: order.customer_phone,
           address: order.customer_address,
@@ -126,7 +164,7 @@ const SupabaseSync = {
         });
       }
 
-      // 2. Insert Order
+      // 2. Insert or Update Order
       const orderPayload = {
         order_number: order.order_number,
         customer_name: order.customer_name || 'Walk-in Customer',
@@ -155,7 +193,7 @@ const SupabaseSync = {
         return;
       }
 
-      // 3. Insert Order Items
+      // 3. Insert Order Items (avoid duplicates if re-synced)
       const orderId = insertedOrder ? insertedOrder.id : null;
       const orderItemsList = (items.length > 0 ? items : (order.items || [])).map(it => ({
         order_id: orderId,
@@ -169,16 +207,56 @@ const SupabaseSync = {
       }));
 
       if (orderItemsList.length > 0) {
-        const { error: itemsErr } = await supabase
+        // Check if items already exist for this order_number
+        const { data: existingItems } = await supabase
           .from('order_items')
-          .insert(orderItemsList);
+          .select('id')
+          .eq('order_number', order.order_number)
+          .limit(1);
 
-        if (itemsErr) console.warn('Supabase items sync error:', itemsErr.message);
+        if (!existingItems || existingItems.length === 0) {
+          const { error: itemsErr } = await supabase
+            .from('order_items')
+            .insert(orderItemsList);
+
+          if (itemsErr) console.warn('Supabase items sync error:', itemsErr.message);
+        }
       }
 
       console.log(`Order ${order.order_number} synced to Supabase successfully`);
     } catch (err) {
       console.warn('Supabase order sync exception (offline):', err.message);
+    }
+  },
+
+  /**
+   * Delete Order & Order Items from Supabase
+   */
+  async deleteOrder(orderNumber) {
+    if (!this.isReady() || !orderNumber) return { success: false, message: 'Supabase offline or not configured' };
+    if (orderNumber === 'TEST-ORD') return { success: true };
+    try {
+      // Delete order items first
+      await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_number', orderNumber);
+
+      // Delete order
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('order_number', orderNumber);
+
+      if (error) {
+        console.warn('Supabase delete order warning:', error.message);
+        return { success: false, message: error.message };
+      }
+      console.log(`Order ${orderNumber} deleted from Supabase cloud.`);
+      return { success: true };
+    } catch (err) {
+      console.warn('Supabase delete order error (offline):', err.message);
+      return { success: false, message: err.message };
     }
   },
 
@@ -218,6 +296,10 @@ const SupabaseSync = {
   async pullFromCloud(dbManager, queries) {
     if (!this.isReady()) return { success: false, message: 'Cloud not connected' };
     try {
+      let pulledCustomers = 0;
+      let pulledOrders = 0;
+      let pulledExpenses = 0;
+
       // 1. Pull Customers
       const { data: cloudCustomers, error: custErr } = await supabase
         .from('customers')
@@ -231,6 +313,7 @@ const SupabaseSync = {
               "INSERT INTO customers (customer_code, name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
               [c.customer_code, c.name, c.phone, c.email || '', c.address || '', c.notes || '', c.created_at, c.updated_at]
             );
+            pulledCustomers++;
           } else {
             dbManager.run(
               "UPDATE customers SET name = ?, address = ?, notes = ?, updated_at = ? WHERE phone = ?",
@@ -265,6 +348,7 @@ const SupabaseSync = {
               o.final_total, o.payment_method, o.order_type, o.packaging_charge,
               o.status, o.notes || '', o.created_at
             ]);
+            pulledOrders++;
           }
         });
       }
@@ -285,10 +369,10 @@ const SupabaseSync = {
             if (!exists) {
               dbManager.run(`
                 INSERT INTO order_items (
-                  order_id, menu_item_id, item_name, category_name, quantity, unit_price, total_price
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                  order_id, order_number, menu_item_id, item_name, category_name, quantity, unit_price, total_price
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               `, [
-                order.id, it.menu_item_id, it.item_name, it.category_name, it.quantity, it.unit_price, it.total_price
+                order.id, it.order_number, it.menu_item_id, it.item_name, it.category_name, it.quantity, it.unit_price, it.total_price
               ]);
             }
           }
@@ -314,13 +398,83 @@ const SupabaseSync = {
             `, [
               e.expense_date, e.item_name, e.category, e.quantity || '', e.cost, e.payment_mode || 'Cash', e.vendor || '', e.notes || '', e.created_at || new Date().toISOString()
             ]);
+            pulledExpenses++;
+          }
+        });
+      }
+
+      // 5. Pull Menu Categories
+      const { data: cloudCats, error: catErr } = await supabase
+        .from('categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (!catErr && Array.isArray(cloudCats)) {
+        cloudCats.forEach(cat => {
+          const exists = dbManager.queryOne("SELECT id FROM categories WHERE name = ?", [cat.name]);
+          if (!exists) {
+            dbManager.run(
+              "INSERT INTO categories (name, display_order, is_active) VALUES (?, ?, 1)",
+              [cat.name, cat.display_order || 0]
+            );
+          }
+        });
+      }
+
+      // 6. Pull Menu Items
+      const { data: cloudMenuItems, error: menuErr } = await supabase
+        .from('menu_items')
+        .select('*');
+
+      if (!menuErr && Array.isArray(cloudMenuItems)) {
+        const now = new Date().toISOString();
+        cloudMenuItems.forEach(item => {
+          const exists = dbManager.queryOne("SELECT id FROM menu_items WHERE name = ?", [item.name]);
+          const catRow = dbManager.queryOne("SELECT id FROM categories WHERE name = ?", [item.category_name || 'General']);
+          const catId = catRow ? catRow.id : 1;
+          if (!exists) {
+            const nextCode = 'ITEM-' + String(catId).padStart(2, '0') + '-' + Math.floor(1000 + Math.random() * 9000);
+            dbManager.run(
+              `INSERT INTO menu_items (item_code, category_id, category_name, name, price, description, is_active, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [item.item_code || nextCode, catId, item.category_name || 'General', item.name, parseFloat(item.price) || 0,
+               item.description || '', item.is_active ? 1 : 0, now, now]
+            );
+          } else {
+            dbManager.run(
+              "UPDATE menu_items SET price = ?, is_active = ?, updated_at = ? WHERE name = ?",
+              [parseFloat(item.price) || 0, item.is_active ? 1 : 0, now, item.name]
+            );
+          }
+        });
+      }
+
+      // 7. Pull App Users (login credentials) — so new PC inherits credentials
+      const { data: cloudUsers, error: userErr } = await supabase
+        .from('app_users')
+        .select('*');
+
+      if (!userErr && Array.isArray(cloudUsers)) {
+        cloudUsers.forEach(u => {
+          const exists = dbManager.queryOne("SELECT id FROM app_users WHERE username = ?", [u.username]);
+          if (!exists) {
+            dbManager.run(
+              "INSERT INTO app_users (username, password_hash, display_name, role, is_active) VALUES (?, ?, ?, ?, 1)",
+              [u.username, u.password_hash, u.display_name || u.username, u.role || 'admin']
+            );
+          } else {
+            // Always sync password hash so new PC gets latest credentials
+            dbManager.run(
+              "UPDATE app_users SET password_hash = ?, display_name = ?, role = ? WHERE username = ?",
+              [u.password_hash, u.display_name || u.username, u.role || 'admin', u.username]
+            );
           }
         });
       }
 
       dbManager.saveDatabase();
-      console.log('Successfully pulled and merged cloud data into local SQLite');
-      return { success: true };
+      console.log(`Successfully pulled cloud data: ${pulledOrders} new orders, ${pulledCustomers} new customers, ${pulledExpenses} new expenses`);
+      return { success: true, pulledOrders, pulledCustomers, pulledExpenses };
     } catch (err) {
       console.warn('Pull from cloud error:', err.message);
       return { success: false, message: err.message };
@@ -331,7 +485,7 @@ const SupabaseSync = {
    * Sync Expense to Supabase
    */
   async syncExpense(expense) {
-    if (!this.isReady()) return;
+    if (!this.isReady() || !expense || !expense.item_name) return;
     try {
       const payload = {
         expense_date: expense.expense_date,
@@ -343,10 +497,203 @@ const SupabaseSync = {
         vendor: expense.vendor || '',
         notes: expense.notes || ''
       };
-      await supabase.from('expenses').insert(payload);
-      console.log(`Synced expense ${expense.item_name} to Supabase`);
+
+      // Check if this expense already exists in cloud to avoid duplicates
+      const { data: existing } = await supabase
+        .from('expenses')
+        .select('id')
+        .eq('expense_date', payload.expense_date)
+        .eq('item_name', payload.item_name)
+        .eq('cost', payload.cost)
+        .limit(1);
+
+      if (!existing || existing.length === 0) {
+        await supabase.from('expenses').insert(payload);
+        console.log(`Synced expense ${expense.item_name} to Supabase`);
+      }
     } catch (err) {
       console.warn('Supabase expense sync notice (offline):', err.message);
+    }
+  },
+
+  /**
+   * Push all local data (customers, orders, order items, expenses) to Supabase Cloud
+   */
+  async syncAllToCloud(dbManager, queries) {
+    if (!this.isReady()) return { success: false, message: 'Cloud not connected' };
+    try {
+      // 1. Sync all local customers
+      const localCustomers = dbManager.queryAll("SELECT * FROM customers");
+      for (const c of localCustomers) {
+        await this.syncCustomer(c);
+      }
+
+      // 2. Sync all local orders & their items
+      const localOrders = dbManager.queryAll("SELECT * FROM orders");
+      for (const ord of localOrders) {
+        const items = dbManager.queryAll("SELECT * FROM order_items WHERE order_id = ?", [ord.id]);
+        await this.syncOrder(ord, items);
+      }
+
+      // 3. Sync all local expenses
+      const localExpenses = dbManager.queryAll("SELECT * FROM expenses");
+      for (const exp of localExpenses) {
+        await this.syncExpense(exp);
+      }
+
+      console.log(`Pushed to Cloud: ${localCustomers.length} customers, ${localOrders.length} orders, ${localExpenses.length} expenses`);
+      return { 
+        success: true, 
+        count: { 
+          customers: localCustomers.length, 
+          orders: localOrders.length, 
+          expenses: localExpenses.length 
+        } 
+      };
+    } catch (err) {
+      console.warn('Sync all to cloud error:', err.message);
+      return { success: false, message: err.message };
+    }
+  },
+
+  /**
+   * Smart Offline Update: Compares local SQLite against Cloud Supabase
+   * and pushes ONLY records that do not yet exist in Cloud (Zero Duplication)
+   */
+  async updateCloudData(dbManager, queries) {
+    if (!this.isReady()) {
+      return { success: false, message: 'Cloud database not configured or offline mode active.' };
+    }
+
+    // 1. Verify connection
+    const conn = await this.checkConnection();
+    if (!conn.connected) {
+      return { success: false, message: 'Cannot reach Cloud. Please check your Wi-Fi or Internet connection.' };
+    }
+
+    const report = {
+      customersAdded: 0,
+      ordersAdded: 0,
+      expensesAdded: 0
+    };
+
+    try {
+      // 2. Fetch existing cloud record identifiers to detect deltas
+      const [cloudCustRes, cloudOrdRes, cloudExpRes] = await Promise.all([
+        supabase.from('customers').select('phone'),
+        supabase.from('orders').select('order_number'),
+        supabase.from('expenses').select('expense_date, item_name, cost')
+      ]);
+
+      const existingPhones = new Set(
+        ((cloudCustRes && cloudCustRes.data) || []).map(c => (c.phone || '').trim())
+      );
+      const existingOrderNumbers = new Set(
+        ((cloudOrdRes && cloudOrdRes.data) || []).map(o => (o.order_number || '').trim())
+      );
+      const existingExpenses = new Set(
+        ((cloudExpRes && cloudExpRes.data) || []).map(e => `${e.expense_date}_${e.item_name}_${parseFloat(e.cost)}`)
+      );
+
+      // 3. Process Local Customers: only push those missing in cloud
+      const localCustomers = dbManager.queryAll("SELECT * FROM customers");
+      for (const cust of localCustomers) {
+        const phone = (cust.phone || '').trim();
+        if (!existingPhones.has(phone)) {
+          await this.syncCustomer(cust);
+          existingPhones.add(phone);
+          report.customersAdded++;
+        }
+      }
+
+      // 4. Process Local Orders: only push those missing in cloud
+      const localOrders = dbManager.queryAll("SELECT * FROM orders");
+      for (const ord of localOrders) {
+        const num = (ord.order_number || '').trim();
+        if (!existingOrderNumbers.has(num)) {
+          const items = dbManager.queryAll("SELECT * FROM order_items WHERE order_id = ?", [ord.id]);
+          await this.syncOrder(ord, items);
+          existingOrderNumbers.add(num);
+          report.ordersAdded++;
+        }
+      }
+
+      // 5. Process Local Expenses: only push those missing in cloud
+      const localExpenses = dbManager.queryAll("SELECT * FROM expenses");
+      for (const exp of localExpenses) {
+        const expKey = `${exp.expense_date}_${exp.item_name}_${parseFloat(exp.cost)}`;
+        if (!existingExpenses.has(expKey)) {
+          await this.syncExpense(exp);
+          existingExpenses.add(expKey);
+          report.expensesAdded++;
+        }
+      }
+
+      // 6. Pull down any remote changes from other PCs
+      const pullRes = await this.pullFromCloud(dbManager, queries);
+      report.pulledOrders = (pullRes && pullRes.pulledOrders) || 0;
+      report.pulledCustomers = (pullRes && pullRes.pulledCustomers) || 0;
+      report.pulledExpenses = (pullRes && pullRes.pulledExpenses) || 0;
+
+      const totalNew = report.customersAdded + report.ordersAdded + report.expensesAdded;
+      let msg = '';
+      if (totalNew === 0) {
+        msg = 'Cloud database is already up-to-date! No pending offline records.';
+      } else {
+        const parts = [];
+        if (report.ordersAdded > 0) parts.push(`${report.ordersAdded} new order(s)`);
+        if (report.customersAdded > 0) parts.push(`${report.customersAdded} new customer(s)`);
+        if (report.expensesAdded > 0) parts.push(`${report.expensesAdded} new expense(s)`);
+        msg = `Uploaded offline data: ${parts.join(', ')}. Zero duplicates created!`;
+      }
+
+      return {
+        success: true,
+        report,
+        message: msg
+      };
+    } catch (err) {
+      console.warn('Update cloud data error:', err.message);
+      return { success: false, message: `Sync failed: ${err.message}` };
+    }
+  },
+
+  /**
+   * Check how many offline records are waiting to be pushed
+   */
+  async getPendingOfflineCount(dbManager) {
+    if (!this.isReady()) return { pendingTotal: 0, connected: false };
+    try {
+      const conn = await this.checkConnection();
+      if (!conn.connected) return { pendingTotal: 0, connected: false };
+
+      const [cloudCustRes, cloudOrdRes, cloudExpRes] = await Promise.all([
+        supabase.from('customers').select('phone'),
+        supabase.from('orders').select('order_number'),
+        supabase.from('expenses').select('expense_date, item_name, cost')
+      ]);
+
+      const existingPhones = new Set(((cloudCustRes && cloudCustRes.data) || []).map(c => (c.phone || '').trim()));
+      const existingOrders = new Set(((cloudOrdRes && cloudOrdRes.data) || []).map(o => (o.order_number || '').trim()));
+      const existingExpenses = new Set(((cloudExpRes && cloudExpRes.data) || []).map(e => `${e.expense_date}_${e.item_name}_${parseFloat(e.cost)}`));
+
+      const localCustomers = dbManager.queryAll("SELECT phone FROM customers");
+      const localOrders = dbManager.queryAll("SELECT order_number FROM orders");
+      const localExpenses = dbManager.queryAll("SELECT expense_date, item_name, cost FROM expenses");
+
+      const pendingCust = localCustomers.filter(c => !existingPhones.has((c.phone || '').trim())).length;
+      const pendingOrd = localOrders.filter(o => !existingOrders.has((o.order_number || '').trim())).length;
+      const pendingExp = localExpenses.filter(e => !existingExpenses.has(`${e.expense_date}_${e.item_name}_${parseFloat(e.cost)}`)).length;
+
+      return {
+        connected: true,
+        pendingTotal: pendingCust + pendingOrd + pendingExp,
+        pendingCust,
+        pendingOrd,
+        pendingExp
+      };
+    } catch (e) {
+      return { connected: false, pendingTotal: 0 };
     }
   },
 
@@ -377,6 +724,14 @@ const SupabaseSync = {
     } catch (e) {
       return null;
     }
+  },
+
+  /**
+   * Full bidirectional sync: push new local records → pull all cloud records.
+   * Used by the background sync loop in main.js.
+   */
+  async fullSync(dbManager, queries) {
+    return this.updateCloudData(dbManager, queries);
   }
 };
 

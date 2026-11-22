@@ -8,12 +8,15 @@ const ReceiptController = {
     const btnClose = document.getElementById('btn-close-receipt');
     const btnDismiss = document.getElementById('btn-receipt-dismiss');
     const btnPrint = document.getElementById('btn-receipt-print-action');
-    const btnPrintChef = document.getElementById('btn-print-chef-only');
 
     if (btnClose) btnClose.addEventListener('click', () => this.hideModal());
     if (btnDismiss) btnDismiss.addEventListener('click', () => this.hideModal());
     if (btnPrint) btnPrint.addEventListener('click', () => this.printReceipt(this.activeView));
-    if (btnPrintChef) btnPrintChef.addEventListener('click', () => this.printReceipt('chef'));
+
+    const btnDelete = document.getElementById('btn-receipt-delete-order');
+    if (btnDelete) {
+      btnDelete.addEventListener('click', () => this.handleDeleteCurrentOrder());
+    }
 
     // Preview Mode Tabs
     const tabs = document.querySelectorAll('.receipt-tab-btn');
@@ -63,7 +66,7 @@ const ReceiptController = {
       if (lblPrint) lblPrint.textContent = 'Print Chef Slip';
     } else {
       container.innerHTML = this.generateDualBillHtml(this.currentOrder);
-      if (lblPrint) lblPrint.textContent = 'Print Both Bills';
+      if (lblPrint) lblPrint.textContent = 'Print Bill & KOT';
     }
   },
 
@@ -258,16 +261,107 @@ const ReceiptController = {
     } else {
       html = this.generateDualBillHtml(this.currentOrder);
     }
-    
+
+    const viewLabel = view === 'customer' ? 'Customer Bill' : (view === 'chef' ? 'Chef Slip (KOT)' : '1 Bill + 1 KOT');
+
     try {
+      if (window.electronAPI && window.electronAPI.directPrint) {
+        if (typeof App !== 'undefined' && App.showToast) {
+          App.showToast(`🖨️ Printing ${viewLabel}...`, 'info');
+        }
+
+        const result = await window.electronAPI.directPrint({
+          order: this.currentOrder,
+          view: view,
+          html: html
+        });
+
+        if (result && result.success) {
+          if (typeof App !== 'undefined' && App.showToast) {
+            App.showToast(`✅ ${viewLabel} printed & cut successfully!`, 'success');
+          }
+          this.hideModal();
+          return;
+        } else {
+          console.warn('Direct print fallback:', result ? result.message : 'failed');
+        }
+      }
+
+      // Fallback
       if (window.electronAPI && window.electronAPI.printReceipt) {
-        await window.electronAPI.printReceipt({ html });
+        await window.electronAPI.printReceipt({ html, order: this.currentOrder, view });
+        this.hideModal();
       } else {
         window.print();
       }
     } catch (e) {
       console.warn('Print error:', e);
-      window.print();
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast('Print failed. Please check your printer connection.', 'error');
+      }
+    }
+  },
+
+  /**
+   * Single-click Direct Print — immediately sends both Customer Bill
+   * + Chef KOT to the default printer. No modal, no dialog.
+   */
+  async directPrintOrder(order, view = 'both') {
+    this.currentOrder = order;
+    const html = view === 'customer' 
+      ? this.generateCustomerBillHtml(order)
+      : (view === 'chef' ? this.generateChefSlipHtml(order) : this.generateDualBillHtml(order));
+
+    try {
+      if (window.electronAPI && window.electronAPI.directPrint) {
+        const result = await window.electronAPI.directPrint({ order, view, html });
+        if (!result || !result.success) {
+          console.warn('Direct print notice:', result ? result.message : 'failed');
+          this.showReceipt(order);
+        }
+      } else {
+        this.showReceipt(order);
+      }
+    } catch (e) {
+      console.warn('Direct print error:', e);
+      this.showReceipt(order);
+    }
+  },
+
+  async handleDeleteCurrentOrder() {
+    if (!this.currentOrder || !this.currentOrder.order_number) return;
+    const orderNum = this.currentOrder.order_number;
+    const confirmed = confirm(`⚠️ Are you sure you want to permanently delete order #${orderNum}?\n\nThis will remove it from the database, cloud sync, and Excel workbook.`);
+    if (!confirmed) return;
+
+    try {
+      if (window.electronAPI && window.electronAPI.deleteOrder) {
+        const res = await window.electronAPI.deleteOrder(orderNum);
+        if (res && res.success) {
+          if (typeof App !== 'undefined' && App.showToast) {
+            App.showToast(`🗑️ Order #${orderNum} deleted successfully`, 'success');
+          }
+          this.hideModal();
+          // Refresh views
+          if (typeof DashboardController !== 'undefined' && DashboardController.refresh) {
+            DashboardController.refresh();
+          }
+          if (typeof POSController !== 'undefined' && POSController.loadOpenOrders) {
+            POSController.loadOpenOrders();
+          }
+          if (typeof ReportsController !== 'undefined' && ReportsController.refresh) {
+            ReportsController.refresh();
+          }
+          if (typeof CustomersController !== 'undefined' && CustomersController.refresh) {
+            CustomersController.refresh();
+          }
+        } else {
+          alert(`Failed to delete order: ${res ? res.error : 'Unknown error'}`);
+        }
+      }
+    } catch (err) {
+      console.error('Delete order error:', err);
+      alert(`Error deleting order: ${err.message}`);
     }
   }
 };

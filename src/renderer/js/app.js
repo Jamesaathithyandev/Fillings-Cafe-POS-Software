@@ -12,12 +12,18 @@ const App = {
     this.checkExcelStatus();
     this.checkCloudStatus();
     setTimeout(() => this.checkCloudStatus(), 2000);
+
+    // Auto-detect when PC connects to Wi-Fi / Internet and instantly sync pending orders
+    window.addEventListener('online', () => {
+      console.log('Wi-Fi / Internet restored. Automatically syncing pending data...');
+      this.syncCloudNow(false);
+    });
     
-    // Auto sync check every 30s
+    // Auto sync check every 25s
     setInterval(() => {
       this.checkExcelStatus();
       this.checkCloudStatus();
-    }, 30000);
+    }, 25000);
 
     // Verify session
     await this.checkAuthSession();
@@ -64,6 +70,17 @@ const App = {
     if (targetSection) {
       targetSection.classList.add('active');
     }
+
+    // Toggle viewport-locking class for POS view
+    const contentArea = document.querySelector('.content-area');
+    if (contentArea) {
+      if (viewName === 'pos') {
+        contentArea.classList.add('pos-active');
+      } else {
+        contentArea.classList.remove('pos-active');
+      }
+    }
+    document.body.classList.toggle('view-pos-active', viewName === 'pos');
 
     // Update Heading
     const heading = document.getElementById('page-heading');
@@ -126,7 +143,7 @@ const App = {
       else if (e.key === 'F9') {
         e.preventDefault();
         if (this.activeView === 'pos' && window.POSController) {
-          window.POSController.handleSaveOrder(true);
+          window.POSController.handleSaveOrder(true, true);
         }
       }
       // F10: Save Order Only (in POS)
@@ -286,6 +303,36 @@ const App = {
   },
 
   setupSystemButtons() {
+    const btnOpenGoogleSheet = document.getElementById('btn-open-google-sheet');
+    if (btnOpenGoogleSheet) {
+      btnOpenGoogleSheet.addEventListener('click', async () => {
+        const res = await window.electronAPI.openGoogleSheet();
+        if (!res || !res.success) {
+          App.showToast('Please configure your Google Sheet link in Excel & Backup first.', 'info');
+          App.navigateTo('backup');
+        }
+      });
+    }
+
+    const btnSidebarOpenSheets = document.getElementById('btn-sidebar-open-sheets');
+    if (btnSidebarOpenSheets) {
+      btnSidebarOpenSheets.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const res = await window.electronAPI.openGoogleSheet();
+        if (!res || !res.success) {
+          App.showToast('Please configure your Google Sheet link in Excel & Backup first.', 'info');
+          App.navigateTo('backup');
+        }
+      });
+    }
+
+    const googleSheetsChip = document.getElementById('google-sheets-chip');
+    if (googleSheetsChip) {
+      googleSheetsChip.addEventListener('click', () => {
+        App.navigateTo('backup');
+      });
+    }
+
     const btnOpenExcel = document.getElementById('btn-open-excel');
     if (btnOpenExcel) {
       btnOpenExcel.addEventListener('click', async () => {
@@ -321,6 +368,66 @@ const App = {
         App.checkExcelStatus();
       });
     }
+
+    const btnSidebarUpdate = document.getElementById('btn-sidebar-update-cloud');
+    if (btnSidebarUpdate) {
+      btnSidebarUpdate.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.updateCloudData(false);
+      });
+    }
+
+    const cloudChip = document.getElementById('supabase-cloud-chip');
+    if (cloudChip) {
+      cloudChip.addEventListener('click', () => {
+        this.updateCloudData(false);
+      });
+    }
+  },
+
+  async updateCloudData(isSilent = false) {
+    const dot = document.getElementById('cloud-sync-dot');
+    const text = document.getElementById('cloud-sync-text');
+    const sidebarBtn = document.getElementById('btn-sidebar-update-cloud');
+
+    if (dot) dot.style.background = '#F59E0B';
+    if (text) text.textContent = 'Updating...';
+    if (sidebarBtn) {
+      sidebarBtn.disabled = true;
+      sidebarBtn.textContent = 'Updating...';
+    }
+
+    try {
+      if (!window.electronAPI || !window.electronAPI.updateCloudData) return;
+      const res = await window.electronAPI.updateCloudData();
+      await this.checkCloudStatus();
+
+      if (window.BackupController && typeof window.BackupController.loadCloudInfo === 'function') {
+        window.BackupController.loadCloudInfo();
+      }
+
+      if (res && res.success) {
+        if (!isSilent) {
+          this.showToast(res.message, 'success');
+        }
+      } else {
+        if (!isSilent) {
+          this.showToast(res ? res.message : 'Could not reach cloud database.', 'warning');
+        }
+      }
+    } catch (e) {
+      console.warn('Update cloud data notice:', e);
+      await this.checkCloudStatus();
+    } finally {
+      if (sidebarBtn) {
+        sidebarBtn.disabled = false;
+        sidebarBtn.textContent = 'Update Cloud';
+      }
+    }
+  },
+
+  async syncCloudNow(isSilent = false) {
+    return this.updateCloudData(isSilent);
   },
 
   async checkExcelStatus() {
@@ -331,10 +438,10 @@ const App = {
       if (dot && text) {
         if (status.locked) {
           dot.className = 'pulse-dot warn';
-          text.textContent = 'Excel Open (Locked)';
+          text.textContent = 'Excel Open (Auto-sync on close)';
         } else if (status.success) {
           dot.className = 'pulse-dot';
-          text.textContent = 'Excel Synced';
+          text.textContent = 'Excel Auto-Synced';
         } else {
           dot.className = 'pulse-dot warn';
           text.textContent = 'Sync Pending';

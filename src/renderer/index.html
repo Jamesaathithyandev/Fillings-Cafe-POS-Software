@@ -29,8 +29,113 @@
         });
     });
   </script>
+
+  <style>
+    /* ── First-Launch Cloud Restore Banner ── */
+    #first-launch-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      background: linear-gradient(90deg, #1e3a5f 0%, #0f4c75 60%, #1a6fa5 100%);
+      color: #e0f0ff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 20px;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+      animation: bannerSlideIn 0.4s ease;
+    }
+    #first-launch-banner.visible { display: flex; }
+    #first-launch-banner .banner-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    #first-launch-banner .banner-spinner {
+      width: 16px; height: 16px;
+      border: 2.5px solid rgba(255,255,255,0.25);
+      border-top-color: #7ecfff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    #first-launch-banner .banner-text { flex: 1; }
+    #first-launch-banner .banner-text strong { color: #fff; }
+    #first-launch-banner .banner-progress {
+      font-size: 11px;
+      color: #a8d8f0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    @keyframes bannerSlideIn {
+      from { transform: translateY(-100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    @keyframes bannerFadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-100%); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Push main layout down while banner is visible */
+    body.first-launch-active .app-layout {
+      padding-top: 44px;
+    }
+  </style>
 </head>
 <body>
+
+<!-- ── First-Launch Cloud Restore Banner ── -->
+<div id="first-launch-banner" role="status" aria-live="polite">
+  <span class="banner-icon">☁️</span>
+  <div class="banner-spinner"></div>
+  <div class="banner-text">
+    <strong>New PC Detected</strong> — Restoring all your orders, customers &amp; menu from cloud. This takes a few seconds...
+  </div>
+  <span class="banner-progress" id="banner-progress-label">Syncing...</span>
+</div>
+
+<script>
+  // Listen for first-launch restore event from main process
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.electronAPI && window.electronAPI.onFirstLaunchRestore) {
+      window.electronAPI.onFirstLaunchRestore(() => {
+        const banner = document.getElementById('first-launch-banner');
+        const label  = document.getElementById('banner-progress-label');
+        if (!banner) return;
+
+        document.body.classList.add('first-launch-active');
+        banner.classList.add('visible');
+
+        // Animate progress label
+        const steps = ['Syncing...', 'Customers ✓', 'Orders ✓', 'Menu ✓', 'Almost done...'];
+        let step = 0;
+        const stepTimer = setInterval(() => {
+          step = Math.min(step + 1, steps.length - 1);
+          if (label) label.textContent = steps[step];
+        }, 1200);
+
+        // After restore is done (data already pulled before window opened),
+        // dismiss the banner and reload data in the UI
+        setTimeout(() => {
+          clearInterval(stepTimer);
+          if (label) label.textContent = '✅ Done!';
+          banner.style.animation = 'bannerFadeOut 0.5s ease forwards';
+          setTimeout(() => {
+            banner.classList.remove('visible');
+            document.body.classList.remove('first-launch-active');
+            // Trigger data refresh across all controllers
+            if (typeof DashboardController !== 'undefined' && DashboardController.refresh) DashboardController.refresh();
+            if (typeof POSController !== 'undefined' && POSController.loadMenuItems) POSController.loadMenuItems();
+            if (typeof CustomersController !== 'undefined' && CustomersController.refresh) CustomersController.refresh();
+          }, 600);
+        }, 6500); // Cloud pull already happened before window loaded — this is just UX timing
+      });
+    }
+  });
+</script>
 
 <div class="app-layout">
 
@@ -99,12 +204,20 @@
 
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
+      <div class="excel-sync-chip" id="google-sheets-chip" style="margin-bottom: 6px; border-color: rgba(16, 185, 129, 0.3);">
+        <div class="sync-indicator">
+          <span class="pulse-dot" id="sheets-sync-dot" style="background: #10B981;"></span>
+          <span id="sheets-sync-text">Google Sheet</span>
+        </div>
+        <button class="btn-sync-now" id="btn-sidebar-open-sheets" title="Open Live Google Sheet in Browser" style="color: #10B981; border-color: rgba(16,185,129,0.4);">Live</button>
+      </div>
+
       <div class="excel-sync-chip" id="supabase-cloud-chip" style="margin-bottom: 6px;">
         <div class="sync-indicator">
           <span class="pulse-dot" id="cloud-sync-dot" style="background: #10B981;"></span>
           <span id="cloud-sync-text">Cloud Sync</span>
         </div>
-        <span class="badge badge-success" id="cloud-status-badge" style="font-size: 10px; padding: 2px 6px;">Online</span>
+        <button class="btn-sync-now" id="btn-sidebar-update-cloud" title="Push offline data to cloud without duplicates">Update Cloud</button>
       </div>
 
       <div class="excel-sync-chip">
@@ -139,6 +252,9 @@
           <svg><use href="#icon-clock"/></svg>
           Loading...
         </div>
+        <button class="topbar-icon-btn" id="btn-open-google-sheet" title="Open Live Google Spreadsheet in Browser" style="color: #10B981; border-color: rgba(16,185,129,0.3);">
+          <svg><use href="#icon-excel"/></svg> Live Google Sheet
+        </button>
         <button class="topbar-icon-btn" id="btn-cloud-pull" title="Pull latest cloud orders &amp; expenses from Supabase">
           <svg><use href="#icon-sync"/></svg> Cloud Pull
         </button>
@@ -278,6 +394,23 @@
       <section class="view-section" id="view-pos">
         <div class="pos-container">
 
+          <!-- Running Tabs Strip (Live Active Orders) -->
+          <div class="pos-running-tabs-strip" id="pos-running-tabs-bar">
+            <div class="running-tabs-label">
+              <span class="pulse-dot"></span>
+              <svg width="13" height="13" style="opacity:0.7;"><use href="#icon-pos"/></svg>
+              <span>Open Tabs</span>
+              <span class="running-tabs-count-badge" id="pos-running-tabs-count">0</span>
+            </div>
+            <div class="running-tabs-scroll" id="pos-running-tabs-list">
+              <!-- Injected by pos.js: Chip badges for open orders -->
+            </div>
+            <button class="btn-new-tab" id="btn-pos-new-tab" title="Start a new blank order">
+              <svg><use href="#icon-plus"/></svg>
+              <span>New Order</span>
+            </button>
+          </div>
+
           <!-- Customer Strip -->
           <div class="pos-customer-strip">
 
@@ -309,6 +442,12 @@
               <input type="text" id="pos-input-phone" placeholder="Phone Number *" style="width:145px;">
               <input type="text" id="pos-input-address" placeholder="Address (Optional)" style="flex:1;">
               <input type="text" id="pos-input-notes" placeholder="Notes" style="width:130px;">
+            </div>
+
+            <!-- Test Mode Warning Badge (shown when customer name is 'test') -->
+            <div id="pos-test-mode-badge" style="display:none; align-items:center; gap:8px; padding:6px 14px; background:rgba(251,191,36,0.13); border:1.5px solid #f59e0b; border-radius:8px; color:#d97706; font-size:12px; font-weight:600; margin-top:4px;">
+              <span style="font-size:16px;">&#129514;</span>
+              <span>TEST MODE &mdash; This order will NOT be saved to the database, sales, or Excel.</span>
             </div>
 
           </div>
@@ -344,13 +483,22 @@
 
               <div class="cart-header">
                 <div class="cart-bill-num">
-                  Bill No.
-                  <strong id="pos-current-order-num">ORD-000001</strong>
+                  <span id="pos-cart-mode-label" class="cart-mode-label">Bill No.</span>
+                  <div style="display:flex; align-items:center; gap:7px;">
+                    <strong id="pos-current-order-num" class="cart-order-num">ORD-000001</strong>
+                    <span id="pos-tab-status-badge" class="badge badge-open-tab" style="display:none;">● OPEN TAB</span>
+                  </div>
                 </div>
-                <button class="btn-clear-cart" id="btn-pos-clear-cart">
-                  <svg><use href="#icon-trash"/></svg>
-                  Clear Cart
-                </button>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn-cart-action btn-danger-soft" id="btn-pos-delete-tab" style="display:none;" title="Delete this running tab permanently">
+                    <svg><use href="#icon-trash"/></svg>
+                    Delete Tab
+                  </button>
+                  <button class="btn-cart-action" id="btn-pos-clear-cart" title="Clear all items from cart">
+                    <svg><use href="#icon-trash"/></svg>
+                    Clear
+                  </button>
+                </div>
               </div>
 
               <!-- Order Type: Dine-In vs Takeaway (₹5 and ₹10 options) -->
@@ -432,15 +580,38 @@
                   </button>
                 </div>
 
-                <!-- CTA Buttons -->
-                <div class="cart-cta-wrap">
-                  <button class="btn-save-print" id="btn-pos-save-print">
+                <!-- CTA Buttons: Dynamic for New vs Running Tab -->
+                <div class="cart-cta-wrap" id="pos-cta-new-order">
+                  <button class="btn-save-print" id="btn-pos-save-print" title="Quick Counter Order — save, print 1 Customer Bill + 1 Kitchen KOT in one click (F9)">
                     <svg><use href="#icon-print"/></svg>
-                    Save &amp; Print Bill (F9)
+                    <span>Direct Bill &amp; Print (F9)</span>
                   </button>
-                  <button class="btn-save-only" id="btn-pos-save-only">
+                  <button class="btn-save-only" id="btn-pos-save-only" title="Save order silently without printing">
                     <svg><use href="#icon-save"/></svg>
-                    Save Order Only (F10)
+                    <span>Save Only (F10)</span>
+                  </button>
+                </div>
+
+                <!-- CTA Buttons: Active Running Tab Mode -->
+                <div class="cart-cta-wrap" id="pos-cta-running-tab" style="display:none;">
+                  <button class="btn-save-print btn-settle" id="btn-pos-settle-bill" title="Customer is paying — settle tab and print the final combined customer bill">
+                    <svg><use href="#icon-check"/></svg>
+                    <span>✅ Settle &amp; Print Final Bill</span>
+                  </button>
+                  <button class="btn-save-only" id="btn-pos-save-tab-only" title="Save any unsaved items to the tab without printing">
+                    <svg><use href="#icon-save"/></svg>
+                    <span>Save Tab (No Print)</span>
+                  </button>
+                </div>
+
+                <!-- Printer Setup Link -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:0 2px;">
+                  <span id="pos-printer-status-label" style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px;">
+                    <svg width="12" height="12"><use href="#icon-print"/></svg>
+                    <span id="pos-printer-name-label">No printer set</span>
+                  </span>
+                  <button id="btn-printer-setup" style="background:none; border:1px solid var(--border); border-radius:6px; color:var(--text-muted); font-size:11px; padding:3px 10px; cursor:pointer; transition:all 0.2s;" title="Configure receipt printer">
+                    ⚙️ Printer Setup
                   </button>
                 </div>
 
@@ -869,8 +1040,99 @@
             </div>
           </div>
 
-          <!-- 2 Column -->
-          <div class="dash-grid-2" style="grid-template-columns:1fr 1fr;">
+          <!-- 3 Column Card Grid -->
+          <div class="dash-grid-2" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+
+            <!-- Google Sheets Live Real-Time Document Card -->
+            <div class="card" style="border: 2px solid rgba(16, 185, 129, 0.4); grid-column: 1 / -1; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.08);">
+              <div class="card-header" style="background: rgba(16, 185, 129, 0.08); display:flex; justify-content:space-between; align-items:center;">
+                <div class="card-title" style="color: #10B981; font-weight:700;">
+                  <svg style="color:#10B981;"><use href="#icon-excel"/></svg>
+                  Google Sheets Live Real-Time Document
+                </div>
+                <span class="badge" id="sheets-badge-status" style="background: rgba(16,185,129,0.2); color:#10B981; font-weight:600; padding:4px 10px; border-radius:12px; font-size:11px;">
+                  Real-Time Cloud
+                </span>
+              </div>
+              <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+                <p style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin:0;">
+                  Your <strong>main live cloud document</strong>. Accessible from any phone, tablet, or PC worldwide in real-time. Works directly on Windows 7 with no OneDrive or Excel installation needed!
+                </p>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                  <div>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Google Apps Script Web App URL:</label>
+                    <input type="text" id="input-sheets-webapp-url" class="input-field" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%; font-family:var(--font-mono); font-size:12px; padding:8px 12px; border-radius:6px; background:var(--bg-elevated); border:1px solid var(--border-1); color:var(--text-primary);" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Google Spreadsheet View Link (Optional):</label>
+                    <input type="text" id="input-sheets-doc-url" class="input-field" placeholder="https://docs.google.com/spreadsheets/d/..." style="width:100%; font-family:var(--font-mono); font-size:12px; padding:8px 12px; border-radius:6px; background:var(--bg-elevated); border:1px solid var(--border-1); color:var(--text-primary);" />
+                  </div>
+                </div>
+
+                <div style="background:var(--bg-elevated); border:1px solid var(--border-1); border-radius:var(--r-md); padding:12px 16px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="pulse-dot" id="sheets-status-dot" style="background:#9CA3AF;"></span>
+                    <span style="font-size:13px; font-weight:600;" id="sheets-status-text">Not Configured</span>
+                  </div>
+                  <div style="font-size:12px; color:var(--text-secondary);">
+                    Last Sync: <span id="sheets-last-sync" style="color:var(--text-primary); font-weight:600;">Never</span>
+                  </div>
+                </div>
+
+                <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                  <button class="btn btn-primary" id="btn-save-sheets-config" style="background:#10B981; border-color:#059669; display:flex; align-items:center; gap:6px;">
+                    <svg><use href="#icon-save"/></svg>
+                    Save &amp; Test Connection
+                  </button>
+                  <button class="btn btn-secondary" id="btn-sync-sheets-now" style="display:flex; align-items:center; gap:6px;">
+                    <svg><use href="#icon-sync"/></svg>
+                    Sync All 7 Sheets Now
+                  </button>
+                  <button class="btn btn-secondary" id="btn-open-sheets-browser" style="display:flex; align-items:center; gap:6px; color:#10B981; border-color:rgba(16,185,129,0.3);">
+                    <svg><use href="#icon-excel"/></svg>
+                    Open Live Sheet in Browser
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Supabase Cloud Sync Card -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg style="color:var(--primary);"><use href="#icon-sync"/></svg>
+                  Cloud Database Sync
+                </div>
+              </div>
+              <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+                <p style="font-size:13px; color:var(--text-secondary); line-height:1.6;">
+                  Updates cloud database with any <strong>offline orders, customers, and expenses</strong> with zero duplicate records.
+                </p>
+
+                <div style="background:var(--bg-elevated); border:1px solid var(--border-1); border-radius:var(--r-md); padding:14px; display:flex; flex-direction:column; gap:8px;">
+                  <div class="info-grid-row" style="border:none; padding:4px 0;">
+                    <span class="info-grid-label">Cloud Status:</span>
+                    <span id="backup-cloud-status" style="color:var(--success); font-weight:600; font-size:13px;">Online</span>
+                  </div>
+                  <div class="info-grid-row" style="border:none; padding:4px 0;">
+                    <span class="info-grid-label">Offline Records:</span>
+                    <span id="backup-cloud-pending" style="color:var(--text-primary); font-weight:600; font-size:12px;">0 pending (All Synced)</span>
+                  </div>
+                  <div class="info-grid-row" style="border:none; padding:4px 0;">
+                    <span class="info-grid-label">Duplicate Prevention:</span>
+                    <span style="color:#10B981; font-weight:600; font-size:12px;">Active (No Duplicates)</span>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                  <button class="btn btn-primary" id="btn-update-cloud-data" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <svg><use href="#icon-sync"/></svg>
+                    Update Cloud Data
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <!-- Excel Sync Card -->
             <div class="card">
@@ -882,7 +1144,7 @@
               </div>
               <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
                 <p style="font-size:13px; color:var(--text-secondary); line-height:1.6;">
-                  Syncs all data across 6 sheets: <strong style="color:var(--text-primary);">CUSTOMERS, ORDERS, ORDER_ITEMS, MENU, DAILY_SALES, MONTHLY_SALES</strong>
+                  Syncs all data across 7 sheets: <strong style="color:var(--text-primary);">CUSTOMERS, ORDERS, ITEMS, MENU, PURCHASES, DAILY &amp; MONTHLY</strong>
                 </p>
 
                 <div style="background:var(--bg-elevated); border:1px solid var(--border-1); border-radius:var(--r-md); padding:14px; display:flex; flex-direction:column; gap:8px;">
@@ -988,7 +1250,7 @@
 
     <!-- Preview Mode Tabs -->
     <div class="receipt-preview-tabs" style="display:flex; background:rgba(0,0,0,0.25); border-bottom:1px solid var(--border-1); padding:8px 16px; gap:8px;">
-      <button type="button" class="btn btn-sm receipt-tab-btn active" id="tab-receipt-both" data-view="both" style="font-size:11.5px; padding:4px 10px;">Both Slips (2 Bills)</button>
+      <button type="button" class="btn btn-sm receipt-tab-btn active" id="tab-receipt-both" data-view="both" style="font-size:11.5px; padding:4px 10px;">Bill + KOT</button>
       <button type="button" class="btn btn-sm receipt-tab-btn" id="tab-receipt-customer" data-view="customer" style="font-size:11.5px; padding:4px 10px;">Customer Bill</button>
       <button type="button" class="btn btn-sm receipt-tab-btn" id="tab-receipt-chef" data-view="chef" style="font-size:11.5px; padding:4px 10px;">Chef Slip (KOT)</button>
     </div>
@@ -1000,14 +1262,21 @@
     </div>
 
     <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-      <button class="btn btn-secondary btn-sm" id="btn-receipt-dismiss">Close</button>
-      <div style="display:flex; gap:6px;">
-        <button class="btn btn-secondary btn-sm" id="btn-print-chef-only" title="Print Chef Kitchen Slip Only">
-          Chef Slip Only
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="btn btn-secondary btn-sm" id="btn-receipt-dismiss">Close</button>
+        <button class="btn btn-sm" id="btn-receipt-delete-order"
+          style="display:flex; align-items:center; gap:5px; color:#F87171; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); transition:all 0.18s ease;"
+          title="Permanently delete this order from database, cloud sync, and Excel"
+          onmouseover="this.style.background='rgba(239,68,68,0.18)';this.style.borderColor='rgba(239,68,68,0.5)';this.style.color='#EF4444';"
+          onmouseout="this.style.background='rgba(239,68,68,0.08)';this.style.borderColor='rgba(239,68,68,0.25)';this.style.color='#F87171';">
+          <svg style="width:12px; height:12px;"><use href="#icon-trash"/></svg>
+          Delete Order
         </button>
+      </div>
+      <div style="display:flex; gap:6px;">
         <button class="btn btn-primary btn-sm" id="btn-receipt-print-action" style="display:flex; align-items:center; gap:6px;">
           <svg style="width:14px; height:14px;"><use href="#icon-print"/></svg>
-          <span id="lbl-print-action">Print Both Bills</span>
+          <span id="lbl-print-action">Print Bill &amp; KOT</span>
         </button>
       </div>
     </div>
@@ -1024,12 +1293,22 @@
     <div class="modal-body" id="order-details-content">
       <!-- Injected by JS -->
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" id="btn-cancel-order-action">Cancel Order</button>
-      <button class="btn btn-primary btn-sm" id="btn-reprint-order-action">
-        <svg><use href="#icon-print"/></svg>
-        Re-Print Bill
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="btn btn-sm" id="btn-delete-order-details-action"
+        style="display:flex; align-items:center; gap:5px; color:#F87171; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); transition:all 0.18s ease;"
+        title="Permanently delete this order"
+        onmouseover="this.style.background='rgba(239,68,68,0.18)';this.style.borderColor='rgba(239,68,68,0.5)';this.style.color='#EF4444';"
+        onmouseout="this.style.background='rgba(239,68,68,0.08)';this.style.borderColor='rgba(239,68,68,0.25)';this.style.color='#F87171';">
+        <svg style="width:12px; height:12px;"><use href="#icon-trash"/></svg>
+        Delete Order
       </button>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-secondary btn-sm" id="btn-cancel-order-action">Cancel Status</button>
+        <button class="btn btn-primary btn-sm" id="btn-reprint-order-action" style="display:flex; align-items:center; gap:5px;">
+          <svg style="width:13px; height:13px;"><use href="#icon-print"/></svg>
+          Re-Print Bill
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1212,6 +1491,40 @@
 <!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- ============================================================
+     PRINTER SETTINGS MODAL
+     ============================================================ -->
+<div id="modal-printer-setup" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
+  <div style="background:linear-gradient(135deg,#1e293b,#0f172a); border:1px solid rgba(99,102,241,0.3); border-radius:20px; padding:32px; width:480px; max-width:95vw; box-shadow:0 25px 60px rgba(0,0,0,0.6); position:relative;">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+      <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.3px;">🖨️ Receipt Printer Setup</div>
+        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">Select your PeriPage / thermal printer once — all future prints go directly to it.</div>
+      </div>
+      <button id="btn-printer-modal-close" style="background:rgba(255,255,255,0.07); border:none; color:#94a3b8; width:32px; height:32px; border-radius:8px; font-size:18px; cursor:pointer; line-height:1;">✕</button>
+    </div>
+
+    <!-- Current Printer Status -->
+    <div id="printer-current-status" style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:10px 14px; margin-bottom:20px; font-size:13px; color:#6ee7b7; display:none;">
+      ✅ Currently using: <strong id="printer-current-name"></strong>
+    </div>
+
+    <!-- Printer List -->
+    <div style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Available Printers on this PC</div>
+    <div id="printer-list-container" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+      <div style="color:#64748b; font-size:13px; padding:20px; text-align:center;">Loading printers...</div>
+    </div>
+
+    <!-- Footer Buttons -->
+    <div style="display:flex; gap:10px; margin-top:24px; justify-content:flex-end;">
+      <button id="btn-printer-test-print" style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.35); color:#a5b4fc; border-radius:10px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s;">🧪 Test Print</button>
+      <button id="btn-printer-save" style="background:linear-gradient(135deg,#6366f1,#4f46e5); border:none; color:#fff; border-radius:10px; padding:9px 22px; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; opacity:0.5;" disabled>Save &amp; Use This Printer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Application Scripts -->
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>
@@ -1221,6 +1534,7 @@
 <script src="js/reports.js"></script>
 <script src="js/expenses.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/printer.js"></script>
 <script src="js/receipt.js"></script>
 
 </body>

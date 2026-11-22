@@ -21,13 +21,14 @@
   "license": "ISC",
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
+    "cross-fetch": "^4.1.0",
     "exceljs": "^4.4.0",
     "sql.js": "^1.12.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "electron": "^34.2.0",
-    "electron-builder": "^26.15.3"
+    "electron": "22.3.27",
+    "electron-builder": "^24.13.3"
   },
   "build": {
     "appId": "com.fillingscafe.pos",
@@ -41,6 +42,9 @@
       "src/**/*",
       "assets/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "**/src/printer/RawPrint.exe"
     ],
     "win": {
       "target": [
@@ -56,5 +60,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Sree Sai Fillings POS"
     }
+  },
+  "allowScripts": {
+    "electron@22.3.27": true
   }
 }

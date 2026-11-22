@@ -6,6 +6,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -220,7 +222,8 @@
   min-height: 0;
   display: flex;
   overflow: hidden;
-  height: calc(100% - 54px);
+  height: 100%;
+  max-height: 100%;
 }
 
 /* ----------------------------------------------------------------
@@ -231,6 +234,7 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -319,7 +323,9 @@
 /* Menu Grid */
 .menu-items-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px 16px;
 }
 
@@ -438,6 +444,7 @@
   flex-shrink: 0;
   height: 100%;
   max-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
@@ -534,7 +541,9 @@
 /* Cart Items */
 .cart-items-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px 0;
 }
 
@@ -637,10 +646,10 @@
    ---------------------------------------------------------------- */
 .cart-footer {
   border-top: 1px solid var(--border-2);
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
   background: rgba(0,0,0,0.15);
 }
@@ -820,3 +829,324 @@
   color: var(--text-primary);
   border-color: rgba(255,255,255,0.14);
 }
+
+/* ----------------------------------------------------------------
+   Running Tabs Strip & KOT Action Styles
+   ---------------------------------------------------------------- */
+.pos-running-tabs-strip {
+  height: 46px;
+  min-height: 46px;
+  background: linear-gradient(90deg, rgba(10, 17, 34, 0.98) 0%, rgba(15, 23, 42, 0.96) 100%);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.12);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.running-tabs-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Pill badge for the live count */
+.running-tabs-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--r-full);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--amber-400);
+  font-family: var(--font-mono);
+  transition: all var(--t-fast);
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  animation: pulse-ring 2.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50%  { box-shadow: 0 0 0 5px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+
+.running-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1;
+  padding: 3px 0;
+  scrollbar-width: none;
+}
+.running-tabs-scroll::-webkit-scrollbar { display: none; }
+
+.running-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px 4px 9px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.running-tab-chip:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--amber-300);
+  transform: translateY(-1px);
+}
+.running-tab-chip.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(234, 88, 12, 0.16) 100%);
+  border-color: var(--amber-500);
+  color: var(--amber-200);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.18), 0 2px 6px rgba(0,0,0,0.3);
+}
+.running-tab-chip .tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 5px rgba(52, 211, 153, 0.5);
+  flex-shrink: 0;
+}
+.running-tab-chip.active .tab-dot {
+  background: var(--amber-400);
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+.running-tab-chip .tab-amount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.running-tab-chip.active .tab-amount {
+  opacity: 1;
+  color: var(--amber-300);
+}
+
+/* Empty state text inside the tabs scroll area */
+.running-tabs-empty-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.btn-new-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--amber-400);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--r-sm);
+  padding: 5px 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  letter-spacing: 0.2px;
+}
+.btn-new-tab:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: var(--amber-500);
+  color: var(--amber-300);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.15);
+}
+.btn-new-tab svg { width: 12px; height: 12px; }
+
+/* ----------------------------------------------------------------
+   Cart Header Action Buttons (Clear / Delete Tab)
+   ---------------------------------------------------------------- */
+.btn-cart-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-1);
+  color: var(--text-muted);
+}
+.btn-cart-action svg { width: 12px; height: 12px; }
+.btn-cart-action:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+  border-color: var(--border-2);
+}
+.btn-cart-action.btn-danger-soft {
+  color: #F87171;
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.06);
+}
+.btn-cart-action.btn-danger-soft:hover {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #EF4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+/* Cart header bill number refinements */
+.cart-mode-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.cart-order-num {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+/* OPEN TAB badge in cart header */
+.badge-open-tab {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  letter-spacing: 0.4px;
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--amber-400);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--r-full);
+  text-transform: uppercase;
+  animation: tab-badge-pulse 3s ease-in-out infinite;
+}
+@keyframes tab-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* ----------------------------------------------------------------
+   KOT Primary Button
+   ---------------------------------------------------------------- */
+.btn-save-kot {
+  width: 100%;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 13px;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: all 0.2s var(--ease-out);
+  letter-spacing: 0.2px;
+  position: relative;
+  overflow: hidden;
+}
+.btn-save-kot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+.btn-save-kot svg { width: 17px; height: 17px; }
+.btn-save-kot:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 7px 22px rgba(5, 150, 105, 0.38);
+}
+.btn-save-kot:active { transform: translateY(0); filter: brightness(0.96); }
+
+/* Additional KOT Round variant — slightly different hue */
+.btn-save-kot.btn-add-kot-round {
+  background: linear-gradient(135deg, #0D7A6A 0%, #065F46 100%);
+  box-shadow: 0 4px 18px rgba(13, 122, 106, 0.28), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.btn-save-kot.btn-add-kot-round:hover {
+  box-shadow: 0 7px 22px rgba(13, 122, 106, 0.38);
+}
+
+/* Settle button — amber/gold to distinguish it from regular bill */
+.btn-save-print.btn-settle {
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.btn-save-print.btn-settle:hover {
+  box-shadow: 0 7px 22px rgba(217, 119, 6, 0.4);
+  filter: brightness(1.08);
+}
+
+/* ----------------------------------------------------------------
+   Item Status Tags ([In Kitchen] / [NEW])
+   ---------------------------------------------------------------- */
+.item-status-tag {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 7px;
+  vertical-align: middle;
+  line-height: 1;
+}
+.item-status-tag.sent {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.item-status-tag.new {
+  background: rgba(245, 158, 11, 0.14);
+  color: #FBBF24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  animation: new-item-glow 2s ease-in-out infinite;
+}
+@keyframes new-item-glow {
+  0%, 100% { box-shadow: none; }
+  50%       { box-shadow: 0 0 6px rgba(245, 158, 11, 0.3); }
+}
+
+

@@ -1,5 +1,6 @@
 // Sree Sai Fillings Cafe - Automated Test Suite
 // Verifies all 12 core requirements and POS scenarios
+process.env.NODE_ENV = 'test';
 
 const assert = require('assert');
 const fs = require('fs');
@@ -164,10 +165,79 @@ async function runTests() {
   const backupRes = await backupManager.createBackup(path.join(testDbDir, 'backups'));
   assert(backupRes.success, 'Backup creation must succeed');
   assert(fs.existsSync(backupRes.dbFile), 'Backup file must exist on disk');
-  console.log(`✅ TEST 12 Passed: Created backup ${backupRes.dbFile} (${backupRes.sizeBytes} bytes).\n`);
+  // TEST 13: Running Tab Lifecycle (KOT First -> Append Items -> Settle Combined Bill)
+  console.log('--- TEST 13: Running Tab Lifecycle (KOT First -> Append -> Settle) ---');
+  const runningOrder = queries.saveOrder({
+    customer: { name: 'Arun Table 4', phone: '9443322110' },
+    items: [
+      { id: 45, name: 'Veg Burger', category: 'BURGER', price: 99.00, quantity: 2 } // 198
+    ],
+    status: 'OPEN',
+    order_type: 'Dine-In',
+    payment_method: 'Cash'
+  });
+
+  assert.strictEqual(runningOrder.status, 'OPEN');
+  const openOrders1 = queries.getOpenOrders();
+  const foundOpen = openOrders1.find(o => o.order_number === runningOrder.order_number);
+  assert(foundOpen, 'Order must appear in open running tabs list');
+
+  // Customer adds another item (Round 2 KOT)
+  const appendRes = queries.appendItemsToOrder(runningOrder.id, [
+    { id: 67, name: 'Rose Milk', category: 'SOFT DRINK & SHAKES', price: 49.00, quantity: 2 } // 98
+  ]);
+  assert.strictEqual(appendRes.success, true);
+  assert.strictEqual(appendRes.order.items.length, 2);
+  assert.strictEqual(appendRes.order.final_total, 296.00); // 198 + 98 = 296
+
+  // Settle running tab when customer leaves
+  const settleRes = queries.settleOrder(runningOrder.id, {
+    payment_method: 'UPI',
+    discount: 16.00, // ₹16 off -> 280.00
+    discount_type: 'flat',
+    packaging_charge: 0
+  });
+  assert(settleRes, 'Settle must return settled order');
+  assert.strictEqual(settleRes.status, 'COMPLETED');
+  assert.strictEqual(settleRes.final_total, 280.00);
+
+  const openOrdersAfterSettle = queries.getOpenOrders();
+  const foundOpenAfter = openOrdersAfterSettle.find(o => o.order_number === runningOrder.order_number);
+  assert(!foundOpenAfter, 'Settled order must no longer appear in open running tabs');
+  console.log(`✅ TEST 13 Passed: Running tab created as OPEN, appended new round items, settled with final bill ₹${settleRes.final_total}.\n`);
+
+  // TEST 14: Delete Order & Recalculate Totals & Rebuild Excel
+  console.log('--- TEST 14: Delete Order & Recalculate System Totals ---');
+  // Create an accidental duplicate order
+  const accOrder = queries.saveOrder({
+    customer: { name: 'Accidental Duplicate', phone: '9000011111' },
+    items: [
+      { id: 1, name: 'Chicken Nuggets', category: 'FRIED ITEMS', price: 99.00, quantity: 1 }
+    ],
+    payment_method: 'Cash'
+  });
+  const accCustId = accOrder.customer_id;
+  const accCustBefore = queries.getCustomerById(accCustId);
+  assert.strictEqual(accCustBefore.total_orders, 1);
+  assert.strictEqual(accCustBefore.total_spent, 99.00);
+
+  // Permanently delete order
+  const delRes = queries.deleteOrder(accOrder.order_number);
+  assert.strictEqual(delRes.success, true);
+
+  const checkDeleted = queries.getOrderDetails(accOrder.order_number);
+  assert.strictEqual(checkDeleted, null, 'Deleted order must not exist in database');
+
+  const accCustAfter = queries.getCustomerById(accCustId);
+  assert.strictEqual(accCustAfter.total_orders, 0, 'Customer order count must be decremented');
+  assert.strictEqual(accCustAfter.total_spent, 0, 'Customer spent total must be reset');
+
+  // Verify excel rebuild runs cleanly after deletion
+  await excelSync.rebuildExcelWorkbook();
+  console.log(`✅ TEST 14 Passed: Order ${accOrder.order_number} permanently deleted, customer stats reverted, Excel rebuilt cleanly.\n`);
 
   console.log('====================================================');
-  console.log('  ALL 12 TESTS COMPLETED SUCCESSFULLY! (100% PASS)  ');
+  console.log('  ALL 14 TESTS COMPLETED SUCCESSFULLY! (100% PASS)  ');
   console.log('====================================================\n');
 }
 
@@ -175,3 +245,4 @@ runTests().catch(err => {
   console.error('❌ Test Failed:', err);
   process.exit(1);
 });
+
