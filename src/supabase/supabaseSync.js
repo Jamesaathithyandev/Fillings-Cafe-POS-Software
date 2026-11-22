@@ -355,7 +355,6 @@ const SupabaseSync = {
             pulledOrders++;
             dbManager.saveDatabase();
           }
-          }
         });
       }
 
