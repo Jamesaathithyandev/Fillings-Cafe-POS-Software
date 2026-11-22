@@ -333,7 +333,11 @@ const SupabaseSync = {
           const exists = dbManager.queryOne("SELECT id FROM orders WHERE order_number = ?", [o.order_number]);
           if (!exists) {
             const cust = dbManager.queryOne("SELECT id FROM customers WHERE phone = ?", [o.customer_phone]);
-            const custId = cust ? cust.id : null;
+            let custId = cust ? cust.id : null;
+            if (!custId) {
+              const anyCust = dbManager.queryOne("SELECT id FROM customers LIMIT 1");
+              custId = anyCust ? anyCust.id : 1;
+            }
 
             dbManager.run(`
               INSERT INTO orders (
@@ -349,6 +353,8 @@ const SupabaseSync = {
               o.status, o.notes || '', o.created_at
             ]);
             pulledOrders++;
+            dbManager.saveDatabase();
+          }
           }
         });
       }
@@ -472,12 +478,13 @@ const SupabaseSync = {
         });
       }
 
-      dbManager.saveDatabase();
       console.log(`Successfully pulled cloud data: ${pulledOrders} new orders, ${pulledCustomers} new customers, ${pulledExpenses} new expenses`);
       return { success: true, pulledOrders, pulledCustomers, pulledExpenses };
     } catch (err) {
       console.warn('Pull from cloud error:', err.message);
       return { success: false, message: err.message };
+    } finally {
+      try { dbManager.saveDatabase(); } catch (e) {}
     }
   },
 
